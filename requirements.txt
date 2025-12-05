@@ -1,0 +1,52 @@
+# ---- Core Python Data Science ----
+numpy
+pandas
+scipy
+scikit-learn
+
+# ---- Time Series + Finance ----
+yfinance
+pandas-datareader
+ta            # technical indicators (RSI, MACD, Bollinger Bands, etc.)
+stldecompose
+
+# ---- Machine Learning Models ----
+xgboost
+lightgbm
+catboost
+
+# ---- Deep Learning (optional but recommended for RNN/LSTM/Transformer models) ----
+tensorflow
+keras
+
+# ---- Reinforcement Learning ----
+stable-baselines3
+gymnasium
+gymnasium[atari]
+
+# ---- NLP / Sentiment Analysis ----
+nltk
+textblob
+transformers
+sentencepiece
+torch            # needed for transformers
+
+# ---- Feature Engineering / Utilities ----
+tqdm
+joblib
+python-dotenv
+
+# ---- Visualization ----
+matplotlib
+seaborn
+plotly
+
+# ---- Notebook / Dev Tools ----
+jupyter
+ipykernel
+
+# ---- Web Requests (for APIs) ----
+requests
+beautifulsoup4
+
+statsmodels==0.13.5

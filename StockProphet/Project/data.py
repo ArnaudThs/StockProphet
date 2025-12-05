@@ -62,7 +62,6 @@ def load_and_prepare_data(ticker: str, start: str, end: str,
     rs = rollUp / rollDown
     df['RSI'] = 100 - (100 / (1 + rs))
 
-    df = df.dropna()
 
     # Flatten MultiIndex if any
     if isinstance(df.columns, pd.MultiIndex):
@@ -94,7 +93,7 @@ def load_and_prepare_data(ticker: str, start: str, end: str,
             if col in df_subset.columns:
                 df_subset.drop(columns=[col], inplace=True)
 
-    return train_df, valid_df, test_df
+    return train_df, valid_df, test_df, df
 
 
 def split_features_labels(train_df, valid_df, test_df, target_col=TARGET):

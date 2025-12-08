@@ -201,10 +201,29 @@ class TradingEnv(gym.Env):
         raise NotImplementedError
 
     def _calculate_reward(self, action):
-        raise NotImplementedError
+        price_diff = self.prices[self._current_tick] - self.prices[self._current_tick - 1]
+
+        # +1 for long, -1 for short
+        position_factor = 1 if self._position == Positions.Long else -1
+
+        return position_factor * price_diff
 
     def _update_profit(self, action):
-        raise NotImplementedError
+        price_now = self.prices[self._current_tick]
+        price_prev = self.prices[self._current_tick - 1]
 
-    def max_possible_profit(self):  # trade fees are ignored
-        raise NotImplementedError
+        if self._position == Positions.Long:
+            self._total_profit *= (price_now / price_prev)
+        else:  # short
+            self._total_profit *= (price_prev / price_now)
+
+    def max_possible_profit(self):
+        total = 1.0
+        for i in range(self._start_tick + 1, self._end_tick + 1):
+            price_now = self.prices[i]
+            price_prev = self.prices[i - 1]
+            if price_now > price_prev:
+                total *= (price_now / price_prev)   # long
+            else:
+                total *= (price_prev / price_now)   # short
+        return total

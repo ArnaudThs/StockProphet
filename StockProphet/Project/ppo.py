@@ -1,8 +1,17 @@
 from stable_baselines3 import PPO
-from Project.dummy_env import DummyEnv
+
+import sys, os
+sys.path.append(os.path.abspath("/../../gym-anytrading"))
+
+from gym_anytrading.envs.flexible_env import FlexibleEnv
 
 def train():
-    env = DummyEnv(n_features=20)
+
+    env = FlexibleEnv(
+        df=None,
+        window_size=50,
+        frame_bound=(50, 300)
+    )
 
     model = PPO(
         "MlpPolicy",
@@ -14,7 +23,7 @@ def train():
     )
 
     model.learn(total_timesteps=50_000)
-    model.save("ppo_dummy_model")
+    model.save("ppo_flexible_env_model")
 
     print("Training complete!")
 

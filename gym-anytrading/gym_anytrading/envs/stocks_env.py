@@ -5,7 +5,7 @@ from .trading_env import TradingEnv, Actions, Positions
 
 class StocksEnv(TradingEnv):
 
-    def __init__(self, df, window_size, frame_bound, render_mode=None):
+    def __init__(self, df, window_size, frame_bound, render_mode=None, fee=0.001):
         assert len(frame_bound) == 2
 
         self.frame_bound = frame_bound
@@ -13,6 +13,7 @@ class StocksEnv(TradingEnv):
 
         self.trade_fee_bid_percent = 0.01  # unit
         self.trade_fee_ask_percent = 0.005  # unit
+        self.fee = fee  # 0.1% per trade by default
 
     def _process_data(self):
         prices = self.df.loc[:, 'Close'].to_numpy()

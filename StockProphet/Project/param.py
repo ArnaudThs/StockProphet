@@ -1,5 +1,5 @@
-START_DATE ="2024-01-01"
-END_DATE ="2024-01-12"
+START_DATE ="2025-01-01"
+END_DATE ="2025-06-30"
 TICKER ="AAPL"
 
 # Massive API Key (ideally loaded from .env)
@@ -7,9 +7,11 @@ API_KEY_MASSIVE ="SiV7GQdKTF2ZtrAr1xNSrnNYP11dKCAC"
 
 # Independent date range for news sentiment
 SENTIMENT_START_DATE ="2025-01-01"
-SENTIMENT_END_DATE ="2025-06-01"
 
-# One or more tickers to extract sentiment from Massive API
+SENTIMENT_END_DATE ="2025-06-30"
+
+
+# One or more tickers to extrract sentiment from Massive API
 SENTIMENT_TICKERS ="AAPL"
 
 # Maximum Massive API limit (1000)

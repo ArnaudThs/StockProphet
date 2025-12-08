@@ -50,3 +50,6 @@ requests
 beautifulsoup4
 
 statsmodels==0.13.5
+
+# ---- Massive ----
+massive

@@ -1,0 +1,2 @@
+# StockProphet
+Predicting stocks

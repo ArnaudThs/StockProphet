@@ -19,6 +19,8 @@ from Project.param import *
 from Project.data import load_data, train_test_split_lstm
 from Project.sentiment_analysis import fetch_daily_ticker_sentiment
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
 from Project.model import *
 
 
@@ -107,6 +109,18 @@ def build_merged_dataframe(df_ohlc: pd.DataFrame, df_sentiment: pd.DataFrame,
 =======
 from Project.model import LSTM_model, compile_LSTM, train_LSTM
 
+=======
+from keras.models import load_model
+from Project.model import *
+
+
+>>>>>>> Stashed changes
+=======
+from keras.models import load_model
+from Project.model import *
+
+
+>>>>>>> Stashed changes
 # --- CONSTANTS ---
 WINDOW_SIZE = 50
 LSTM_EPOCHS = 10
@@ -191,6 +205,12 @@ def build_rnn_predictions(df_ohlc: pd.DataFrame, window_size: int = WINDOW_SIZE,
 # -------------------------
 def build_merged_dataframe(df_ohlc: pd.DataFrame,
                            rnn_preds: pd.Series) -> pd.DataFrame:
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
     df = df_ohlc.copy()
     df["date"] = pd.to_datetime(df["date"])
@@ -198,6 +218,8 @@ def build_merged_dataframe(df_ohlc: pd.DataFrame,
     #df = df.join(df_sentiment, how="left").fillna(0.0)
     df = df.join(rnn_preds, how="left")
 
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
     # Merge sentiment (df_sentiment is indexed by date)
     df_sent = df_sentiment.copy()
@@ -220,15 +242,20 @@ def build_merged_dataframe(df_ohlc: pd.DataFrame,
     for i in range(1, window_size + 1):
         df[f"close_lag_{i}"] = df["close"].shift(i)
 =======
+=======
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
     df["log_ret"] = np.log(df["close"] / df["close"].shift(1))
     for i in range(1, 6):
         df[f"log_ret_lag_{i}"] = df["log_ret"].shift(i)
->>>>>>> Stashed changes
 
     # drop rows without enough history or without next_return
     df = df.dropna().reset_index()
     return df
 
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
 
 def load_sentiment():
@@ -243,6 +270,10 @@ def merge_all(ohlcv, lstm_pred, sentiment):
     df = ohlcv.merge(lstm_pred, on="date", how="left")
     df = df.merge(sentiment, on="date", how="left")
 =======
+=======
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
 # -------------------------
 # 4. Gymnasium Environment
 # -------------------------
@@ -451,6 +482,12 @@ def main():
     print("Testing Strategy...")
     test_ppo(df_test)
     print("Done.")
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 
     return df

@@ -23,6 +23,7 @@ keras
 stable-baselines3
 gymnasium
 gymnasium[atari]
+gym
 
 # ---- NLP / Sentiment Analysis ----
 nltk

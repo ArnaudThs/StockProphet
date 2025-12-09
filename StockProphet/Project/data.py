@@ -49,18 +49,18 @@ def train_test_split_lstm(df, split_ratio=0.7, time_step=50):
     length = len(df)
     length_train = round(length * split_ratio)
 
-    train_df = df.iloc[:length_train][["Date", "Close"]].copy()
-    val_df   = df.iloc[length_train:][["Date", "Close"]].copy()
+    train_df = df.iloc[:length_train][["date", "close"]].copy()
+    val_df   = df.iloc[length_train:][["date", "close"]].copy()
 
     # Convert dates
-    train_df["Date"] = pd.to_datetime(train_df["Date"])
-    val_df["Date"]   = pd.to_datetime(val_df["Date"])
+    train_df["date"] = pd.to_datetime(train_df["date"])
+    val_df["date"]   = pd.to_datetime(val_df["date"])
 
     # --- Scaling ---
     scaler = MinMaxScaler(feature_range=(0, 1))
 
-    train_close = train_df["Close"].values.reshape(-1, 1)
-    val_close   = val_df["Close"].values.reshape(-1, 1)
+    train_close = train_df["close"].values.reshape(-1, 1)
+    val_close   = val_df["close"].values.reshape(-1, 1)
 
     train_scaled = scaler.fit_transform(train_close)
     val_scaled   = scaler.transform(val_close)  # <-- Correct! transform, NOT fit

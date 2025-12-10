@@ -20,15 +20,6 @@ from Project.data import load_data, train_test_split_lstm
 from Project.sentiment_analysis import fetch_daily_ticker_sentiment
 from Project.model import LSTM_model, compile_LSTM, train_LSTM
 
-# --- CONSTANTS ---
-WINDOW_SIZE = 50
-LSTM_EPOCHS = 10
-BATCH_SIZE = 32
-PPO_TIMESTEPS = 50_000
-PPO_MODEL_PATH = "ppo_trader"
-RNN_MODEL_PATH = "lstm_rnn.keras"
-TRANSACTION_COST_PCT = 0.001
-MOVEMENT_BONUS = 0.01
 
 # -------------------------
 # 1. Data Loading
@@ -120,27 +111,51 @@ def build_merged_dataframe(df_ohlc: pd.DataFrame,
 # -------------------------
 # 4. Gymnasium Environment
 # -------------------------
+import numpy as np
+import gymnasium as gym
+from gymnasium import spaces
+from collections import deque
+
+
+
+import numpy as np
+import gymnasium as gym
+from gymnasium import spaces
+from collections import deque
+
+TRANSACTION_COST_PCT = 0.0003  # REDUCED further for more trading
+CASH_PENALTY_RATE = 0.0005     # INCREASED significantly
+HOLDING_PENALTY = 0.15          # TRIPLED: Strong penalty for inaction
+
 class TradingEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
 
-    def __init__(self, df: pd.DataFrame, window_size: int = 30):
+    def __init__(self, df, window_size=30):
         super().__init__()
         self.df = df.reset_index(drop=True)
         self.window_size = window_size
         self.initial_cash = 10_000
 
         # Features
-        self.feature_cols = ["close", "rnn_pred_close", "log_ret"] # Add Sentiment Back After
+        self.feature_cols = ["close", "rnn_pred_close", "log_ret"]
         self.feature_cols += [c for c in df.columns if "lag" in c]
 
         obs_dim = (len(self.feature_cols) * self.window_size) + 2
-        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(obs_dim,), dtype=np.float32)
+        self.observation_space = spaces.Box(
+            low=-np.inf,
+            high=np.inf,
+            shape=(obs_dim,),
+            dtype=np.float32
+        )
+
         self.action_space = spaces.Discrete(3)  # 0=Hold, 1=Buy, 2=Sell
 
-        # Metrics Tracking
+        # Tracking
         self.returns_window = deque(maxlen=50)
         self.portfolio_history = []
+        self.trade_log = []
         self.max_portfolio_value = self.initial_cash
+        self.steps_since_trade = 0
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
@@ -148,81 +163,161 @@ class TradingEnv(gym.Env):
         self.shares = 0
         self.current_step = self.window_size
         self.portfolio_history = [self.initial_cash]
-        self.max_portfolio_value = self.initial_cash
+        self.trade_log = []
         self.returns_window.clear()
+        self.max_portfolio_value = self.initial_cash
+        self.steps_since_trade = 0
         return self._get_observation(), {}
 
     def _get_observation(self):
         start = self.current_step - self.window_size
-        end = self.current_step
-        data_window = self.df.loc[start:end-1, self.feature_cols].values.flatten()
-        state = np.concatenate([data_window, [self.cash / 10000.0, self.shares / 100.0]])
-        return state.astype(np.float32)
+        window = self.df.loc[start:self.current_step-1, self.feature_cols].values.flatten()
+        obs = np.concatenate([window, [self.cash / 10000.0, self.shares / 100.0]])
+        return obs.astype(np.float32)
 
     def step(self, action):
         price = self.df.loc[self.current_step, "close"]
-        if isinstance(action, np.ndarray): action = action.item()
+        if isinstance(action, np.ndarray):
+            action = action.item()
 
-        # Execute Trade
-        if action == 1: # Buy
-            cost = price * (1 + TRANSACTION_COST_PCT)
-            if self.cash >= cost:
+        prev_shares = self.shares
+        prev_cash = self.cash
+
+        # -- Execute Trade --
+        if action == 1:  # BUY
+            max_shares = int(self.cash / (price * (1 + TRANSACTION_COST_PCT)))
+            shares_to_buy = min(10, max_shares)  # Buy up to 10 shares at once
+
+            if shares_to_buy > 0:
+                cost = shares_to_buy * price * (1 + TRANSACTION_COST_PCT)
                 self.cash -= cost
-                self.shares += 1
-        elif action == 2: # Sell
-            if self.shares > 0:
-                proceeds = price * (1 - TRANSACTION_COST_PCT)
-                self.cash += proceeds
-                self.shares -= 1
+                self.shares += shares_to_buy
+                self.trade_log.append(("BUY", self.current_step, price, shares_to_buy))
+                self.steps_since_trade = 0
 
+        elif action == 2:  # SELL
+            shares_to_sell = min(10, self.shares)  # Sell up to 10 shares at once
+
+            if shares_to_sell > 0:
+                proceeds = shares_to_sell * price * (1 - TRANSACTION_COST_PCT)
+                self.cash += proceeds
+                self.shares -= shares_to_sell
+                self.trade_log.append(("SELL", self.current_step, price, shares_to_sell))
+                self.steps_since_trade = 0
+
+        # Track inactivity
+        if action == 0 or (prev_shares == self.shares and prev_cash == self.cash):
+            self.steps_since_trade += 1
+
+        # Move step forward
         self.current_step += 1
         terminated = self.current_step >= len(self.df) - 1
 
-        # Calculate Value
-        new_portfolio_value = self.cash + (self.shares * self.df.loc[self.current_step, "close"])
-        prev_portfolio_value = self.portfolio_history[-1]
+        # Cash depreciation (opportunity cost)
+        depreciation_amount = self.cash * CASH_PENALTY_RATE
+        self.cash -= depreciation_amount
 
-        # Log History
-        self.portfolio_history.append(new_portfolio_value)
+        # --- Portfolio Value ---
+        current_price = self.df.loc[self.current_step, "close"]
+        portfolio_value = self.cash + self.shares * current_price
+        prev_value = self.portfolio_history[-1]
+        self.portfolio_history.append(portfolio_value)
 
-        # --- REWARD CALCULATION ---
-        step_return = (new_portfolio_value - prev_portfolio_value) / prev_portfolio_value
+        # --- Reward Engineering ---
+        step_return = (portfolio_value - prev_value) / prev_value
         self.returns_window.append(step_return)
 
-        # Base Reward
+        # Base reward: portfolio change
         reward = step_return * 100
 
-        # Update Peak Value
-        self.max_portfolio_value = max(self.max_portfolio_value, new_portfolio_value)
+        # 1. DIRECTIONAL REWARD (predict price movement correctly)
+        price_change = (current_price - price) / price
 
-        # Calculate Drawdown
-        drawdown = (self.max_portfolio_value - new_portfolio_value) / self.max_portfolio_value
-        DRAWDOWN_PENALTY_COEF = 10.0 # Tune this coefficient
-        if drawdown > 0.01:
-            reward -= DRAWDOWN_PENALTY_COEF * (drawdown ** 2)
+        if action == 1:  # BUY
+            # Reward if price goes UP after buying
+            reward += max(0, price_change * 50)
+        elif action == 2:  # SELL
+            # Reward if price goes DOWN after selling
+            reward += max(0, -price_change * 50)
 
-        # Sharpe Bonus (Risk-adjusted return reward)
-        if len(self.returns_window) > 20:
-            std_dev = np.std(self.returns_window)
-            if std_dev > 1e-9:
-                sharpe = np.mean(self.returns_window) / std_dev
-                reward += (sharpe * 0.1)
+        # 2. PROFIT TAKING BONUS (sell near peaks)
+        if action == 2 and self.shares >= 0:
+            self.max_portfolio_value = max(self.max_portfolio_value, portfolio_value)
+            near_peak_factor = portfolio_value / self.max_portfolio_value
+            reward += near_peak_factor * 2.0
 
+        # 3. HOLDING PENALTY - Punish doing nothing (INCREASED)
+        if action == 0:
+            reward -= HOLDING_PENALTY * 2  # Double the penalty
 
-        if action == 1 or action == 2: # If the agent chose Buy or Sell
-            reward += MOVEMENT_BONUS
+        # 4. INACTIVITY PENALTY - Punish long periods without trading (MORE AGGRESSIVE)
+        if self.steps_since_trade > 10:  # Reduced from 20
+            reward -= 0.3 * (self.steps_since_trade - 10)  # Increased from 0.1
+
+        # 5. CASH SITTING PENALTY - Punish having too much uninvested cash (STRONGER)
+        cash_ratio = self.cash / portfolio_value
+        if cash_ratio > 0.5:  # Lowered from 0.8
+            reward -= (cash_ratio - 0.3) * 5.0  # Increased from 2.0
+
+        # 6. POSITION HOLDING REWARD - Reward staying invested
+        if self.shares > 0:
+            investment_ratio = (self.shares * current_price) / portfolio_value
+            reward += investment_ratio * 0.5  # Bonus for being invested
+
+        # 6. EXPOSURE REWARD - Reward being invested when market goes up
+        if self.shares > 0 and price_change > 0:
+            exposure_ratio = (self.shares * current_price) / portfolio_value
+            reward += exposure_ratio * price_change * 30
+
+        # 7. DRAWDOWN PENALTY (but reduced magnitude)
+        self.max_portfolio_value = max(self.max_portfolio_value, portfolio_value)
+        dd = (self.max_portfolio_value - portfolio_value) / self.max_portfolio_value
+        reward -= dd * 3  # Reduced from 7
+
+        # 8. VOLATILITY PENALTY (but only extreme volatility)
+        if len(self.returns_window) > 10:
+            vol = np.std(self.returns_window)
+            if vol > 0.02:  # Only penalize high volatility
+                reward -= (vol - 0.02) * 50
+
+        # 9. FINAL PORTFOLIO BONUS (encourage growth)
+        if terminated:
+            final_return = (portfolio_value - self.initial_cash) / self.initial_cash
+            reward += final_return * 200  # Big bonus for positive final returns
 
         return self._get_observation(), reward, terminated, False, {}
 
-# -------------------------
-# 5. Training Function
-# -------------------------
+
+# UPDATED TRAINING PARAMETERS IN param.py:
+"""
+PPO_TIMESTEPS = 200_000  # Increase to at least 200k
+TRANSACTION_COST_PCT = 0.0005  # Lower transaction costs
+LEARNING_RATE = 0.0001  # Add this - lower learning rate
+ENT_COEF = 0.2  # Increase entropy for more exploration
+"""
+
+# UPDATED PPO TRAINING:
 def train_ppo(df):
-    # Use DummyVecEnv for training (it's faster and standard for PPO)
+    from stable_baselines3 import PPO
+    from stable_baselines3.common.vec_env import DummyVecEnv
+
     env = DummyVecEnv([lambda: TradingEnv(df)])
-    model = PPO("MlpPolicy", env, verbose=1, ent_coef=0.1)
-    model.learn(total_timesteps=PPO_TIMESTEPS)
-    model.save(PPO_MODEL_PATH)
+
+    model = PPO(
+        "MlpPolicy",
+        env,
+        verbose=1,
+        learning_rate=0.0001,      # Lower learning rate
+        ent_coef=0.2,               # Higher entropy = more exploration
+        n_steps=2048,               # Longer episodes before update
+        batch_size=64,              # Smaller batches
+        n_epochs=10,                # More gradient steps per update
+        gamma=0.99,                 # Discount factor
+        clip_range=0.2,             # PPO clip range
+    )
+
+    model.learn(total_timesteps=200_000)  # DO NOT REDUCE THIS
+    model.save("ppo_trader")
     return model
 
 # -------------------------
@@ -305,6 +400,28 @@ def test_ppo(df):
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.show()
+
+        # --- Plot Trades ---
+    buy_x = [t[1] - start_idx for t in env.trade_log if t[0] == "BUY"]
+    buy_y = [t[2] for t in env.trade_log if t[0] == "BUY"]
+
+    sell_x = [t[1] - start_idx for t in env.trade_log if t[0] == "SELL"]
+    sell_y = [t[2] for t in env.trade_log if t[0] == "SELL"]
+
+    plt.figure(figsize=(14, 6))
+    plt.plot(relevant_prices, label="Close Price", alpha=0.6)
+    plt.scatter(buy_x, buy_y, marker="^", color="green", s=100, label="BUY")
+    plt.scatter(sell_x, sell_y, marker="v", color="red", s=100, label="SELL")
+    plt.title("Trading Actions")
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.show()
+
+    print("\nTRADE LOG SUMMARY")
+    print("----------------------")
+    for t in env.trade_log:
+        print(f"{t[0]} at day={t[1]} price={t[2]:.2f}")
+
 
 # -------------------------
 # 7. Main Execution

@@ -1,22 +1,31 @@
+import sys
+import os
 import streamlit as st
 import pandas as pd
-from Project.Pipeline_streamlit import run_lstm_prediction, run_drl_simulation
-from Project.sentiment_analysis import get_daily_sentiment_filled
 
-# ------------------------------------------------
-#   STREAMLIT PAGE CONFIG
-# ------------------------------------------------
-st.set_page_config(
-    page_title="StockProphet Dashboard",
-    layout="wide"
-)
+# ---------------------------------------------------------
+# FIX PYTHON PATH FOR IMPORTS
+# ---------------------------------------------------------
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, "..", ".."))
+sys.path.append(PROJECT_ROOT)
 
+# ---------------------------------------------------------
+# PIPELINE IMPORTS
+# ---------------------------------------------------------
+from Project.Pipeline_streamlit import run_full_pipeline_streamlit
+
+# ---------------------------------------------------------
+# STREAMLIT CONFIG
+# ---------------------------------------------------------
+st.set_page_config(page_title="StockProphet Dashboard", layout="wide")
 st.title("🤖 StockProphet – Trading Bot Dashboard")
 
-# ------------------------------------------------
-#   USER INPUTS
-# ------------------------------------------------
-ticker = st.selectbox("Select Ticker", ["AAPL", "MSFT", "NVDA"])
+# ---------------------------------------------------------
+# USER INPUTS
+# ---------------------------------------------------------
+ticker = st.selectbox("Select ticker:", ["AAPL", "MSFT", "NVDA"])
+
 col1, col2 = st.columns(2)
 with col1:
     start_date = st.date_input("Start Date")
@@ -25,35 +34,36 @@ with col2:
 
 run_button = st.button("Run Trading Simulation 🚀")
 
-# ------------------------------------------------
-#   MAIN EXECUTION
-# ------------------------------------------------
+# ---------------------------------------------------------
+# EXECUTION
+# ---------------------------------------------------------
 if run_button:
-    st.write("Running simulation... please wait.")
+    st.info("Running full simulation... please wait ⏳")
 
-    # ---- 1. DRL Simulation ----
-    df_test, equity_curve = run_drl_simulation(ticker, start_date, end_date)
-
-    st.subheader("📉 Equity Curve (DRL Strategy Performance)")
-    st.line_chart(equity_curve)
-
-    # ---- 2. LSTM Prediction ----
-    st.subheader("📈 Price Prediction (LSTM Model)")
-    df_prices, preds = run_lstm_prediction(ticker, start_date, end_date)
-
-    # Create a DF for Streamlit charting
-    pred_df = pd.DataFrame({
-        "Actual Price": df_prices["Close"].values[-len(preds):],
-        "Predicted Price": preds
-    })
-    st.line_chart(pred_df)
-
-    # ---- 3. Sentiment (Optional) ----
-    st.subheader("📰 Daily News Sentiment")
     try:
-        sentiment_df = get_daily_sentiment_filled(ticker)
-        st.line_chart(sentiment_df["sentiment"])
-    except Exception as e:
-        st.warning(f"Sentiment unavailable: {e}")
+        df_test, df_merged, preds, equity_curve = run_full_pipeline_streamlit(
+            ticker, start_date, end_date
+        )
 
-    st.success("Simulation Completed ✔")
+        # ------------------------------------------
+        # 1. DRL Equity Curve
+        # ------------------------------------------
+        st.subheader("📉 DRL Strategy Performance (Equity Curve)")
+        st.line_chart(pd.DataFrame({"Equity": equity_curve}))
+
+        # ------------------------------------------
+        # 2. LSTM Predictions
+        # ------------------------------------------
+        st.subheader("📈 LSTM Price Prediction vs Actual")
+
+        pred_df = pd.DataFrame({
+            "Actual Price": df_merged["close"].values[-len(preds):],
+            "Predicted Price": preds
+        })
+
+        st.line_chart(pred_df)
+
+        st.success("Simulation Completed Successfully ✔")
+
+    except Exception as e:
+        st.error(f"❌ Error: {e}")

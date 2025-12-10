@@ -1,42 +1,46 @@
 import pandas as pd
-import numpy as np
+from Project.data import load_data
+from Project.main import build_rnn_predictions, build_merged_dataframe
 from stable_baselines3 import PPO
-from Project.param import *
-from Project.data import load_data, train_test_split_lstm
-from Project.model import LSTM_model, compile_LSTM, train_LSTM
-from keras.models import load_model
-from .main import TradingEnv, build_rnn_predictions, build_merged_dataframe
+from Project.main import TradingEnv
 
-# ----------------------------------------------------
-# 1. LSTM PREDICTION ONLY
-# ----------------------------------------------------
-def run_lstm_prediction(ticker, start_date, end_date):
-    df = load_data(ticker, start_date, end_date)
-    preds = build_rnn_predictions(df, force_retrain=False)
+def normalize_ohlc(df):
+    df = df.copy()
+    df.columns = [c.lower() for c in df.columns]
 
-    # align predictions with actual data
+    # Fix date column names
+    if "date" not in df.columns:
+        for c in df.columns:
+            if "date" in c:
+                df = df.rename(columns={c: "date"})
+                break
+
+    # Fix close column names
+    if "close" not in df.columns:
+        for c in df.columns:
+            if "close" in c:
+                df = df.rename(columns={c: "close"})
+                break
+
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
     df = df.sort_values("date").reset_index(drop=True)
-    preds = preds.reindex(pd.to_datetime(df["date"]), method="nearest")
 
-    return df, preds.values
+    return df
 
 
-# ----------------------------------------------------
-# 2. DRL SIMULATION ONLY
-# ----------------------------------------------------
-def run_drl_simulation(ticker, start_date, end_date):
-    print("Preparing data...")
+def load_data_streamlit(ticker, start_date, end_date):
+    df = load_data(ticker, start_date, end_date)
+    df = normalize_ohlc(df)
+    return df
 
-    # Load OHLC
-    df_ohlc = load_data(ticker, start_date, end_date)
 
-    # Predict using LSTM
-    rnn_preds = build_rnn_predictions(df_ohlc)
+def prepare_dataset(df_ohlc):
+    preds = build_rnn_predictions(df_ohlc, force_retrain=False)
+    df_merged = build_merged_dataframe(df_ohlc, preds)
+    return df_merged, preds
 
-    # Merge OHLC + predictions
-    df_merged = build_merged_dataframe(df_ohlc, rnn_preds)
 
-    # Train/Test split (simple split for demo)
+def run_drl(df_merged):
     split = int(len(df_merged) * 0.7)
     df_train = df_merged.iloc[:split].reset_index(drop=True)
     df_test  = df_merged.iloc[split:].reset_index(drop=True)
@@ -46,7 +50,7 @@ def run_drl_simulation(ticker, start_date, end_date):
     model = PPO("MlpPolicy", env_train, verbose=0)
     model.learn(total_timesteps=50_000)
 
-    # Test the strategy
+    # Test PPO
     env_test = TradingEnv(df_test)
     obs, _ = env_test.reset()
     done = False
@@ -56,17 +60,19 @@ def run_drl_simulation(ticker, start_date, end_date):
         obs, reward, terminated, truncated, info = env_test.step(action.item())
         done = terminated or truncated
 
-    # Return portfolio history
     equity_curve = env_test.portfolio_history
-    df_test_cut = df_test.iloc[env_test.window_size : env_test.window_size + len(equity_curve)]
 
-    return df_test_cut, equity_curve
+    return df_test, equity_curve
 
 
-# ----------------------------------------------------
-# 3. FULL PIPELINE (OPTIONAL)
-# ----------------------------------------------------
-def run_full_pipeline():
-    """For debugging outside Streamlit."""
-    from .main import main
-    main()
+def run_full_pipeline_streamlit(ticker, start_date, end_date):
+    # 1. Load data
+    df_ohlc = load_data_streamlit(ticker, start_date, end_date)
+
+    # 2. LSTM + merge
+    df_merged, preds = prepare_dataset(df_ohlc)
+
+    # 3. DRL
+    df_test, equity_curve = run_drl(df_merged)
+
+    return df_test, df_merged, preds, equity_curve

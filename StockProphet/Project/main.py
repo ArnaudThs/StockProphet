@@ -103,7 +103,7 @@ def build_rnn_predictions(df_ohlc: pd.DataFrame, window_size: int = WINDOW_SIZE,
 # 3. Data Merging
 # -------------------------
 def build_merged_dataframe(df_ohlc: pd.DataFrame,
-                           rnn_preds: pd.Series) -> pd.DataFrame:
+                           rnn_preds: pd.Series) -> pd.DataFrame: # Sentiment df
     df = df_ohlc.copy()
     df["date"] = pd.to_datetime(df["date"])
     df = df.set_index("date").sort_index()
@@ -140,6 +140,7 @@ class TradingEnv(gym.Env):
         # Metrics Tracking
         self.returns_window = deque(maxlen=50)
         self.portfolio_history = []
+        self.max_portfolio_value = self.initial_cash
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
@@ -147,6 +148,7 @@ class TradingEnv(gym.Env):
         self.shares = 0
         self.current_step = self.window_size
         self.portfolio_history = [self.initial_cash]
+        self.max_portfolio_value = self.initial_cash
         self.returns_window.clear()
         return self._get_observation(), {}
 
@@ -190,12 +192,25 @@ class TradingEnv(gym.Env):
         # Base Reward
         reward = step_return * 100
 
+        # Update Peak Value
+        self.max_portfolio_value = max(self.max_portfolio_value, new_portfolio_value)
+
+        # Calculate Drawdown
+        drawdown = (self.max_portfolio_value - new_portfolio_value) / self.max_portfolio_value
+        DRAWDOWN_PENALTY_COEF = 10.0 # Tune this coefficient
+        if drawdown > 0.01:
+            reward -= DRAWDOWN_PENALTY_COEF * (drawdown ** 2)
+
         # Sharpe Bonus (Risk-adjusted return reward)
         if len(self.returns_window) > 20:
             std_dev = np.std(self.returns_window)
             if std_dev > 1e-9:
                 sharpe = np.mean(self.returns_window) / std_dev
                 reward += (sharpe * 0.1)
+
+
+        if action == 1 or action == 2: # If the agent chose Buy or Sell
+            reward += MOVEMENT_BONUS
 
         return self._get_observation(), reward, terminated, False, {}
 
@@ -205,7 +220,7 @@ class TradingEnv(gym.Env):
 def train_ppo(df):
     # Use DummyVecEnv for training (it's faster and standard for PPO)
     env = DummyVecEnv([lambda: TradingEnv(df)])
-    model = PPO("MlpPolicy", env, verbose=1, ent_coef=0.05)
+    model = PPO("MlpPolicy", env, verbose=1, ent_coef=0.1)
     model.learn(total_timesteps=PPO_TIMESTEPS)
     model.save(PPO_MODEL_PATH)
     return model
@@ -257,12 +272,14 @@ def test_ppo(df):
     history = env.portfolio_history
 
     # Generate Buy & Hold Comparison
-    initial_price = df["close"].iloc[0]
+    start_idx = env.window_size
+    initial_price = df["close"].iloc[start_idx]
     buy_hold_shares = 10000 / initial_price
-    buy_hold_history = df["close"].values * buy_hold_shares
-    # Trim buy_hold to match the test duration (env starts at window_size)
-    # The env runs from window_size to end.
-    buy_hold_history = buy_hold_history[env.window_size : env.window_size + len(history)]
+
+    # Get the price history from the window_size onwards
+    # We must ensure lengths match perfectly
+    relevant_prices = df["close"].iloc[start_idx : start_idx + len(history)].values
+    buy_hold_history = relevant_prices * buy_hold_shares
 
     # Calculate Metrics
     strat_ret, strat_dd, strat_sharpe = calculate_metrics(history)

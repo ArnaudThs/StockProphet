@@ -21,6 +21,7 @@ keras
 
 # ---- Reinforcement Learning ----
 stable-baselines3
+sb3-contrib
 gymnasium
 gymnasium[atari]
 
@@ -35,11 +36,13 @@ torch            # needed for transformers
 tqdm
 joblib
 python-dotenv
+pyarrow  # For parquet file caching
 
 # ---- Visualization ----
 matplotlib
 seaborn
 plotly
+streamlit  # For dashboard demo
 
 # ---- Notebook / Dev Tools ----
 jupyter

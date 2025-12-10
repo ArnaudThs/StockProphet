@@ -54,3 +54,6 @@ statsmodels==0.13.5
 
 # ---- Massive ----
 massive
+
+# ---- Streamlit ----
+streamlit

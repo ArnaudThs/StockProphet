@@ -1,0 +1,10 @@
+{
+  "ticker": "AAPL",
+  "start_date": "2020-01-01",
+  "end_date": "2020-12-31",
+  "window_size": 50,
+  "epochs": 20,
+  "probabilistic": true,
+  "data_hash": "abc12345",
+  "cached_at": "2025-12-10T16:31:14.970835"
+}

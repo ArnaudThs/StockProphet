@@ -40,7 +40,7 @@ def load_data(ticker, start_date, end_date):
 
 def train_test_split_lstm(df, split_ratio=0.7, time_step=50):
     """
-    Splits a DataFrame with columns ['date', 'close'] into
+    Splits a DataFrame with columns ['Date', 'Close'] into
     scaled LSTM-ready X_train, y_train, X_test, y_test.
     Uses one scaler for both train and validation.
     """
@@ -49,7 +49,6 @@ def train_test_split_lstm(df, split_ratio=0.7, time_step=50):
     length = len(df)
     length_train = round(length * split_ratio)
 
-    # <-- use lowercase column names -->
     train_df = df.iloc[:length_train][["date", "close"]].copy()
     val_df   = df.iloc[length_train:][["date", "close"]].copy()
 
@@ -64,7 +63,7 @@ def train_test_split_lstm(df, split_ratio=0.7, time_step=50):
     val_close   = val_df["close"].values.reshape(-1, 1)
 
     train_scaled = scaler.fit_transform(train_close)
-    val_scaled   = scaler.transform(val_close)
+    val_scaled   = scaler.transform(val_close)  # <-- Correct! transform, NOT fit
 
     # --- Create sequences ---
     def create_sequences(data, time_step):

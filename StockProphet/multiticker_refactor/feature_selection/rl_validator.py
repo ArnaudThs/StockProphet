@@ -292,14 +292,30 @@ class RLFeatureValidator:
         if not self.results:
             raise ValueError("No results to save. Run validation first!")
 
+        # Convert NumPy types to Python native types for JSON serialization
+        def convert_to_native(obj):
+            """Recursively convert NumPy types to Python native types."""
+            if isinstance(obj, (np.integer, np.int64, np.int32)):
+                return int(obj)
+            elif isinstance(obj, (np.floating, np.float64, np.float32)):
+                return float(obj)
+            elif isinstance(obj, np.ndarray):
+                return obj.tolist()
+            elif isinstance(obj, dict):
+                return {key: convert_to_native(value) for key, value in obj.items()}
+            elif isinstance(obj, list):
+                return [convert_to_native(item) for item in obj]
+            else:
+                return obj
+
         results_dict = {
             'config': {
                 'ticker': self.ticker,
-                'timesteps': self.timesteps,
-                'n_seeds': self.n_seeds,
+                'timesteps': int(self.timesteps),
+                'n_seeds': int(self.n_seeds),
                 'env_version': CONTINUOUS_ENV_VERSION
             },
-            'results': self.results
+            'results': convert_to_native(self.results)
         }
 
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)

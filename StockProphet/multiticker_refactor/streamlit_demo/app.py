@@ -146,7 +146,10 @@ dates = metadata.get('dates', {})  # Get date mapping if available
 metrics = calculate_metrics(portfolio_history, initial_capital)
 
 # Title
-st.title("Stock Prophet")
+st.markdown(
+    "<div style='font-size:70px; font-weight:700;'>Stock Prophet</div>",
+    unsafe_allow_html=True
+)
 
 # Slider control (defined first so value is available to both columns)
 current_step = st.slider(
@@ -318,16 +321,16 @@ with col_right:
 
         st.plotly_chart(fig, use_container_width=True)
 
-    # Row 2: Trades table
+    # Row 2: Allocation table
     st.markdown("---")
-    st.markdown("#### Trades")
+    st.markdown("#### Current Allocation")
 
-    # Show trades for current day
+    # Show current allocation
     allocation = get_current_allocation(actions, current_step, tickers)
-    trades_data = {
+    allocation_data = {
         'Ticker': list(allocation.keys()),
-        'Allocation': [f"{v:+.1f}%" for v in allocation.values()]
+        'Allocation': [f"{v:.1f}%" for v in allocation.values()]
     }
 
-    trades_df = pd.DataFrame(trades_data)
-    st.dataframe(trades_df, use_container_width=True, height=120, hide_index=True)
+    allocation_df = pd.DataFrame(allocation_data)
+    st.dataframe(allocation_df, use_container_width=True, height=120, hide_index=True)

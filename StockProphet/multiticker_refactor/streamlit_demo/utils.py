@@ -12,11 +12,21 @@ def load_episode_data(data_dir: str = None) -> Dict:
     """
     Load episode data from saved files.
 
+    Prepends Day 0 (initial state with 100% cash) so that:
+    - Day 0 = Initial state, 100% cash, $10,000, no action yet
+    - Day 1 = First action taken, portfolio still $10,000 (result not known yet)
+    - Day 2 = Portfolio shows result of Day 1's action, Day 2's action taken
+    - etc.
+
+    Timeline:
+    - portfolio[N] = value at START of day N (before day N's action resolves)
+    - actions[N] = action taken on day N (result shows in portfolio[N+1])
+
     Args:
         data_dir: Directory containing episode data (if None, auto-detect)
 
     Returns:
-        Dict with all episode data
+        Dict with all episode data (with Day 0 prepended)
     """
     if data_dir is None:
         # Auto-detect: try multiple possible locations
@@ -44,11 +54,51 @@ def load_episode_data(data_dir: str = None) -> Dict:
     with open(data_dir / "metadata.json", 'r') as f:
         metadata = json.load(f)
 
-    # Load arrays
-    portfolio_history = np.load(data_dir / "portfolio_history.npy")
-    actions = np.load(data_dir / "actions.npy")
+    # Load arrays (as saved: portfolio[i] = value AFTER action[i] executed)
+    raw_portfolio = np.load(data_dir / "portfolio_history.npy")
+    raw_actions = np.load(data_dir / "actions.npy")
     rewards = np.load(data_dir / "rewards.npy")
     prices = np.load(data_dir / "prices.npy")
+
+    initial_capital = metadata['initial_capital']
+    n_tickers = len(metadata['tickers'])
+
+    # Reframe: portfolio[N] = value at START of day N (before action resolves)
+    # Day 0: $10,000 (initial), no action
+    # Day 1: $10,000 (initial), first action taken
+    # Day 2: result of Day 1's action, second action taken
+    # ...
+    # Day N: result of Day N-1's action, Day N's action taken
+
+    # Portfolio: prepend initial capital twice (Day 0 and Day 1 both start at $10k)
+    # Then append raw_portfolio[:-1] (shift forward by 1)
+    portfolio_history = np.concatenate([
+        [initial_capital, initial_capital],  # Day 0 and Day 1
+        raw_portfolio[:-1]  # Days 2 onwards show previous day's result
+    ])
+
+    # Actions: Day 0 has no action (100% cash placeholder), then raw_actions
+    day0_action = np.zeros((1, n_tickers + 1))
+    day0_action[0, -1] = 1.0  # 100% cash (no trade)
+    actions = np.concatenate([day0_action, raw_actions])
+
+    # Rewards: prepend 0 for Day 0
+    rewards = np.concatenate([[0.0], rewards])
+
+    # Prices: prepend first row for Day 0
+    prices = np.concatenate([prices[0:1], prices])
+
+    # Update metadata
+    metadata['n_steps'] = len(portfolio_history)
+
+    # Shift dates by 1 (Day 0 = "Initial", Day 1+ = trading dates)
+    if 'dates' in metadata:
+        old_dates = metadata['dates']
+        new_dates = {'0': 'Initial'}
+        for old_key, date_val in old_dates.items():
+            new_key = str(int(old_key) + 1)
+            new_dates[new_key] = date_val
+        metadata['dates'] = new_dates
 
     return {
         'metadata': metadata,
@@ -103,6 +153,11 @@ def calculate_metrics(portfolio_history: np.ndarray, initial_capital: float) -> 
 def get_current_allocation(actions: np.ndarray, step: int, tickers: list) -> Dict:
     """
     Get current portfolio allocation at given step.
+
+    Since Day 0 is prepended with 100% cash action, this simply returns
+    the action/allocation at the given step:
+    - Day 0: 100% cash (initial state)
+    - Day 1+: Result of trading action
 
     Args:
         actions: Array of actions (shape: n_steps, n_tickers+1)

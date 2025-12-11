@@ -111,12 +111,10 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Initialize session state for playback
-if 'current_step' not in st.session_state:
-    st.session_state.current_step = 0
 if 'playing' not in st.session_state:
     st.session_state.playing = False
-if 'speed' not in st.session_state:
-    st.session_state.speed = 0  # 0=pause, 1=normal, 5=fast
+if 'day_slider' not in st.session_state:
+    st.session_state.day_slider = 0
 
 # Load data
 @st.cache_data
@@ -159,17 +157,14 @@ with col_play:
         st.session_state.playing = not st.session_state.playing
 
 with col_slider:
-    # Slider synced with session state
+    # Slider uses key as source of truth - session state IS the slider value
     current_step = st.slider(
         "Select Trading Day",
         min_value=0,
         max_value=n_steps - 1,
-        value=st.session_state.current_step,
         key="day_slider",
         help=f"Slide to view portfolio state on different days"
     )
-    # Update session state if slider moved manually
-    st.session_state.current_step = current_step
 
 # Debug: Check if dates are loaded
 if not dates:
@@ -351,11 +346,11 @@ with col_right:
 # ===========================================================================
 if st.session_state.playing:
     time.sleep(0.05)  # Adjust speed (0.05 = 20 fps)
-    st.session_state.current_step += 1
+    st.session_state.day_slider += 1
 
-    # Loop back to start or stop at end
-    if st.session_state.current_step >= n_steps:
-        st.session_state.current_step = 0
+    # Stop at end
+    if st.session_state.day_slider >= n_steps:
+        st.session_state.day_slider = 0
         st.session_state.playing = False
 
     st.rerun()

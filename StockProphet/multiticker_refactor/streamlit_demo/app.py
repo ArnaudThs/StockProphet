@@ -151,14 +151,25 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Slider control (defined first so value is available to both columns)
-current_step = st.slider(
-    "Select Trading Day",
-    min_value=0,
-    max_value=n_steps - 1,
-    value=0,
-    help=f"Slide to view portfolio state on different days"
-)
+# Playback controls
+col_play, col_slider = st.columns([1, 9])
+
+with col_play:
+    if st.button("▶️ Play" if not st.session_state.playing else "⏸️ Pause"):
+        st.session_state.playing = not st.session_state.playing
+
+with col_slider:
+    # Slider synced with session state
+    current_step = st.slider(
+        "Select Trading Day",
+        min_value=0,
+        max_value=n_steps - 1,
+        value=st.session_state.current_step,
+        key="day_slider",
+        help=f"Slide to view portfolio state on different days"
+    )
+    # Update session state if slider moved manually
+    st.session_state.current_step = current_step
 
 # Debug: Check if dates are loaded
 if not dates:
@@ -334,3 +345,17 @@ with col_right:
 
     allocation_df = pd.DataFrame(allocation_data)
     st.dataframe(allocation_df, use_container_width=True, height=120, hide_index=True)
+
+# ===========================================================================
+# PLAYBACK LOOP (must be at the end)
+# ===========================================================================
+if st.session_state.playing:
+    time.sleep(0.05)  # Adjust speed (0.05 = 20 fps)
+    st.session_state.current_step += 1
+
+    # Loop back to start or stop at end
+    if st.session_state.current_step >= n_steps:
+        st.session_state.current_step = 0
+        st.session_state.playing = False
+
+    st.rerun()

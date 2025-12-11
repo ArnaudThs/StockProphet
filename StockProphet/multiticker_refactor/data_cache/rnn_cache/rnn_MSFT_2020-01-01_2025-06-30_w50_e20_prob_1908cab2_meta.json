@@ -1,0 +1,10 @@
+{
+  "ticker": "MSFT",
+  "start_date": "2020-01-01",
+  "end_date": "2025-06-30",
+  "window_size": 50,
+  "epochs": 20,
+  "probabilistic": true,
+  "data_hash": "1908cab25a0dfd0a30c49519c6cd3c56",
+  "cached_at": "2025-12-10T16:37:00.401547"
+}

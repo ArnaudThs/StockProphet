@@ -54,8 +54,8 @@ from .config import (
     VECNORMALIZE_CLIP_OBS,
     VECNORMALIZE_CLIP_REWARD,
 )
-from .pipeline_multi import build_multi_ticker_dataset, prepare_multi_ticker_for_ppo
-from .envs.multi_asset_env import create_train_val_test_envs
+from .pipeline import build_multi_ticker_dataset, prepare_multi_ticker_for_ppo
+from .envs import create_train_val_test_envs
 
 
 def parse_args():
@@ -231,7 +231,7 @@ def train_multi_ticker(
     )
 
     # =========================================================================
-    # Step 4: Create RecurrentPPO model
+    # Step 4: Create RecurrentPPO model with constrained policy
     # =========================================================================
     print("\n" + "=" * 70)
     print("STEP 4: CREATING RECURRENT PPO MODEL")
@@ -239,23 +239,30 @@ def train_multi_ticker(
 
     try:
         from sb3_contrib import RecurrentPPO
-        policy_type = "MlpLstmPolicy"
-        model_class = RecurrentPPO
-        print("\n✅ Using RecurrentPPO with MlpLstmPolicy")
+        from .models.constrained_policy import (
+            ConstrainedRecurrentPolicy,
+            get_constrained_policy_kwargs
+        )
+        print("\n✅ Using RecurrentPPO with ConstrainedRecurrentPolicy")
+        print("   - Squashed Gaussian (tanh) instead of clipping")
+        print("   - log_std clamped to [-2.0, 0.5] (std ∈ [0.14, 1.65])")
     except ImportError:
         raise ImportError(
             "sb3-contrib is required for RecurrentPPO. Install with: pip install sb3-contrib"
         )
 
-    # Entropy schedule (exploration decay)
-    # Use linear schedule from START to END
-    ent_coef_schedule = get_schedule_fn(PPO_ENT_COEF_START)
-    # Note: For linear decay, you can use a lambda or just pass the initial value
-    # SB3 doesn't support custom schedules easily, so use constant or linear
-    # We'll use a simple constant for now (can be improved later)
+    # Constrained policy kwargs - prevents std explosion
+    policy_kwargs = get_constrained_policy_kwargs(
+        net_arch=dict(pi=[256, 256], vf=[256, 256]),
+        lstm_hidden_size=64,
+        n_lstm_layers=1,
+        log_std_init=-0.5,   # std ≈ 0.6 (reasonable exploration)
+        log_std_min=-2.0,    # std >= 0.14 (prevents collapse)
+        log_std_max=0.5,     # std <= 1.65 (prevents explosion)
+    )
 
-    model = model_class(
-        policy_type,
+    model = RecurrentPPO(
+        ConstrainedRecurrentPolicy,
         train_env_vec,
         learning_rate=PPO_LEARNING_RATE,
         n_steps=PPO_N_STEPS,
@@ -264,16 +271,17 @@ def train_multi_ticker(
         gamma=PPO_GAMMA,
         gae_lambda=PPO_GAE_LAMBDA,
         clip_range=PPO_CLIP_RANGE,
-        ent_coef=PPO_ENT_COEF_START,  # Use constant for now (simpler and works)
+        ent_coef=PPO_ENT_COEF_START,
+        policy_kwargs=policy_kwargs,
         verbose=1,
         tensorboard_log="./ppo_multi_logs/"
     )
 
-    print(f"   Policy: {policy_type}")
+    print(f"   Policy: ConstrainedRecurrentPolicy")
     print(f"   Learning rate: {PPO_LEARNING_RATE}")
     print(f"   n_steps: {PPO_N_STEPS}")
     print(f"   Batch size: {PPO_BATCH_SIZE}")
-    print(f"   Entropy coef: {PPO_ENT_COEF_START} → {PPO_ENT_COEF_END} (scheduled)")
+    print(f"   Entropy coef: {PPO_ENT_COEF_START}")
 
     # =========================================================================
     # Step 5: Train model

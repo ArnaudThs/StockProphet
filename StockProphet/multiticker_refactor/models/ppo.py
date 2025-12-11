@@ -12,6 +12,7 @@ from ..config import (
     PPO_TIMESTEPS, VEC_NORMALIZE_PATH, RECURRENT_PPO_MODEL_PATH,
     ENV_TYPE
 )
+from .constrained_policy import ConstrainedRecurrentPolicy, get_constrained_policy_kwargs
 
 
 class SyncNormCallback(BaseCallback):
@@ -251,7 +252,11 @@ def create_continuous_model(
     n_lstm_layers: int = 1,
     seed: int = 42,
     tensorboard_log: str = None,
-    verbose: int = 1
+    verbose: int = 1,
+    use_constrained_policy: bool = True,
+    log_std_init: float = -0.5,
+    log_std_min: float = -2.0,
+    log_std_max: float = 0.5,
 ):
     """
     Create a RecurrentPPO model for continuous action spaces.
@@ -274,6 +279,11 @@ def create_continuous_model(
         seed: Random seed
         tensorboard_log: Tensorboard log path
         verbose: Verbosity
+        use_constrained_policy: If True, use ConstrainedRecurrentPolicy with
+            squashed Gaussian and clamped std (recommended for bounded actions)
+        log_std_init: Initial log_std value (default -0.5 → std ≈ 0.6)
+        log_std_min: Minimum log_std (default -2.0 → std >= 0.135)
+        log_std_max: Maximum log_std (default 0.5 → std <= 1.65)
 
     Returns:
         RecurrentPPO model for continuous action space
@@ -282,8 +292,34 @@ def create_continuous_model(
     def lr_schedule(progress):
         return learning_rate * (1 - progress * 0.5)
 
+    # Choose policy class and kwargs
+    if use_constrained_policy:
+        policy_class = ConstrainedRecurrentPolicy
+        policy_kwargs = get_constrained_policy_kwargs(
+            net_arch=dict(pi=[256, 256], vf=[256, 256]),
+            lstm_hidden_size=lstm_hidden_size,
+            n_lstm_layers=n_lstm_layers,
+            log_std_init=log_std_init,
+            log_std_min=log_std_min,
+            log_std_max=log_std_max,
+        )
+        if verbose:
+            print(f"Using ConstrainedRecurrentPolicy:")
+            print(f"  - Squashed Gaussian (tanh, not clip)")
+            print(f"  - log_std bounds: [{log_std_min}, {log_std_max}]")
+            print(f"  - log_std_init: {log_std_init} (std ≈ {2.718**log_std_init:.2f})")
+    else:
+        policy_class = "MlpLstmPolicy"
+        policy_kwargs = dict(
+            net_arch=dict(pi=[256, 256], vf=[256, 256]),
+            lstm_hidden_size=lstm_hidden_size,
+            n_lstm_layers=n_lstm_layers,
+            shared_lstm=False,
+            enable_critic_lstm=True,
+        )
+
     model = RecurrentPPO(
-        policy="MlpLstmPolicy",
+        policy=policy_class,
         env=env,
         learning_rate=lr_schedule,
         n_steps=n_steps,
@@ -296,13 +332,7 @@ def create_continuous_model(
         vf_coef=0.5,
         max_grad_norm=0.5,
         normalize_advantage=True,
-        policy_kwargs=dict(
-            net_arch=dict(pi=[256, 256], vf=[256, 256]),
-            lstm_hidden_size=lstm_hidden_size,
-            n_lstm_layers=n_lstm_layers,
-            shared_lstm=False,
-            enable_critic_lstm=True,
-        ),
+        policy_kwargs=policy_kwargs,
         verbose=verbose,
         tensorboard_log=tensorboard_log,
         seed=seed

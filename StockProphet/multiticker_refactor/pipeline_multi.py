@@ -34,18 +34,17 @@ from .config import (
     LSTM_EPOCHS,
     LSTM_BATCH_SIZE,
     PROB_LSTM_HORIZONS,
-    INCLUDE_SENTIMENT,
-    API_KEY_MASSIVE,
-    SENTIMENT_START_DATE,
-    SENTIMENT_END_DATE,
+    POLYGON_API_KEY,
 )
 from .data.downloader import download_prices, clean_raw
 from .data.features import add_all_technicals, add_calendar_macro
-from .data.sentiment import fetch_daily_ticker_sentiment
+from .sentiment import add_sentiment_features
 from .data.cache import (
     compute_data_hash,
     load_rnn_cache,
-    save_rnn_cache
+    save_rnn_cache,
+    load_pipeline_cache,
+    save_pipeline_cache
 )
 from .models.rnn import train_and_predict, train_and_predict_probabilistic
 
@@ -334,10 +333,14 @@ def train_rnns_parallel(
             start_date, end_date, use_cache
         ))
 
-    # Train in parallel
-    print(f"   Starting parallel training...")
-    with Pool(processes=n_processes) as pool:
-        results = pool.starmap(train_single_rnn, train_args)
+    # Train in parallel (or sequentially if only 1 ticker to avoid multiprocessing issues)
+    if len(tickers) == 1:
+        print(f"   Training single ticker sequentially (avoiding multiprocessing)...")
+        results = [train_single_rnn(*train_args[0])]
+    else:
+        print(f"   Starting parallel training...")
+        with Pool(processes=n_processes) as pool:
+            results = pool.starmap(train_single_rnn, train_args)
 
     # Build results dict
     rnn_models = {}
@@ -387,38 +390,13 @@ def add_rnn_predictions_for_ticker(
 
 
 # =============================================================================
-# STEP 5: SENTIMENT (PER TICKER)
+# STEP 5: SENTIMENT (PER TICKER) - Polygon API + FinBERT
 # =============================================================================
 
-def add_sentiment_for_ticker(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
-    """
-    Fetch and add sentiment data for a single ticker.
-
-    Args:
-        df: DataFrame with datetime index
-        ticker: Ticker symbol
-
-    Returns:
-        DataFrame with sentiment column added (e.g., AAPL_sentiment)
-    """
-    try:
-        df_sent = fetch_daily_ticker_sentiment(
-            API_KEY_MASSIVE, ticker,
-            SENTIMENT_START_DATE, SENTIMENT_END_DATE
-        )
-
-        # Map sentiment to DataFrame index
-        sentiment_dict = df_sent["sentiment"].to_dict()
-        sentiment_col = f"{ticker}_sentiment"
-        df[sentiment_col] = df.index.to_series().apply(
-            lambda d: sentiment_dict.get(d.normalize(), 0)
-        )
-
-    except Exception as e:
-        print(f"Sentiment fetch failed for {ticker}: {e}, filling with zeros")
-        df[f"{ticker}_sentiment"] = 0
-
-    return df
+# Sentiment module handles:
+# - News fetching from Polygon API (with caching)
+# - Sentiment scoring with FinBERT (lazy-loaded, with caching)
+# See: sentiment/pipeline.py
 
 
 # =============================================================================
@@ -557,8 +535,9 @@ def build_multi_ticker_dataset(
     start_date: str,
     end_date: str,
     include_rnn: bool = True,
-    include_sentiment: bool = INCLUDE_SENTIMENT,
+    include_sentiment: bool = True,
     probabilistic_rnn: bool = True,
+    use_cache: bool = True,
     verbose: bool = True
 ) -> Tuple[pd.DataFrame, dict]:
     """
@@ -583,6 +562,7 @@ def build_multi_ticker_dataset(
         include_rnn: Whether to train LSTMs
         include_sentiment: Whether to fetch sentiment
         probabilistic_rnn: Use probabilistic multi-horizon LSTM
+        use_cache: Whether to use pipeline cache (default True)
         verbose: Print progress
 
     Returns:
@@ -592,6 +572,27 @@ def build_multi_ticker_dataset(
     """
     if len(tickers) > MAX_TICKERS:
         raise ValueError(f"Maximum {MAX_TICKERS} tickers allowed (got {len(tickers)})")
+
+    # =========================================================================
+    # Try to load from cache first
+    # =========================================================================
+    if use_cache:
+        cached = load_pipeline_cache(
+            tickers=tickers,
+            start_date=start_date,
+            end_date=end_date,
+            include_rnn=include_rnn,
+            include_sentiment=include_sentiment,
+            probabilistic_rnn=probabilistic_rnn
+        )
+        if cached is not None:
+            df, metadata = cached
+            # Restore non-serializable items (they're not critical for evaluation/training)
+            metadata['scalers'] = {}  # Scalers not needed after normalization
+            metadata['rnn_models'] = {}  # Models not needed after predictions added
+            if verbose:
+                print()
+            return df, metadata
 
     if verbose:
         print("=" * 60)
@@ -703,17 +704,21 @@ def build_multi_ticker_dataset(
             print("[7/9] Skipping RNN predictions")
 
     # =========================================================================
-    # STEP 8: Add sentiment (per ticker, optional)
+    # STEP 8: Add sentiment (Polygon + FinBERT, batch processing, optional)
     # =========================================================================
     if include_sentiment:
         if verbose:
-            print("[8/9] Fetching sentiment data...")
+            print("[8/9] Adding sentiment features...")
 
-        for ticker in tickers:
-            print(f"   Fetching sentiment for {ticker}...", end=" ", flush=True)
-            df = add_sentiment_for_ticker(df, ticker)
-            print("✓")
-        print()
+        df = add_sentiment_features(
+            df=df,
+            tickers=tickers,
+            start_date=start_date,
+            end_date=end_date,
+            polygon_api_key=POLYGON_API_KEY,
+            force_refresh=False,
+            verbose=verbose
+        )
     else:
         if verbose:
             print("[8/9] Skipping sentiment")
@@ -755,5 +760,20 @@ def build_multi_ticker_dataset(
         print(f"Features per ticker: ~{len([c for c in df.columns if c.startswith(tickers[0] + '_')])}")
         print(f"Shared features: ~{len([c for c in df.columns if '_' not in c or c.split('_')[0] not in tickers])}")
         print("=" * 60 + "\n")
+
+    # =========================================================================
+    # Save to cache for next run
+    # =========================================================================
+    if use_cache:
+        save_pipeline_cache(
+            df=df,
+            metadata=metadata,
+            tickers=tickers,
+            start_date=start_date,
+            end_date=end_date,
+            include_rnn=include_rnn,
+            include_sentiment=include_sentiment,
+            probabilistic_rnn=probabilistic_rnn
+        )
 
     return df, metadata

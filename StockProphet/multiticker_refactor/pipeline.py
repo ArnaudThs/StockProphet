@@ -5,21 +5,21 @@ Integrates: OHLCV download, technical indicators, calendar features, RNN predict
 import numpy as np
 import pandas as pd
 
-from project_refactored.config import (
+from .config import (
     TARGET_TICKER, SUPPORT_TICKERS, START_DATE, END_DATE,
     SENTIMENT_START_DATE, SENTIMENT_END_DATE,
-    API_KEY_MASSIVE, LSTM_WINDOW_SIZE, LSTM_EPOCHS, LSTM_BATCH_SIZE,
+    LSTM_WINDOW_SIZE, LSTM_EPOCHS, LSTM_BATCH_SIZE,
     LSTM_MODEL_PATH, PROB_LSTM_MODEL_PATH
 )
-from project_refactored.data.downloader import download_prices, clean_raw
-from project_refactored.data.features import (
+from .data.downloader import download_prices, clean_raw
+from .data.features import (
     initialize_feature_registry, add_all_technicals, add_calendar_macro,
     generate_cross_ticker_features, apply_shift_engine, trim_date_range,
     clean_final_dataset, data_integrity_report, generate_markdown_feature_doc,
     register_feature
 )
-from project_refactored.data.sentiment import fetch_daily_ticker_sentiment
-from project_refactored.models.rnn import (
+# NOTE: Single-ticker pipeline - sentiment support removed (use pipeline_multi.py for sentiment)
+from .models.rnn import (
     train_and_predict, save_model,
     train_and_predict_probabilistic, save_probabilistic_model
 )
@@ -92,21 +92,10 @@ def add_sentiment(df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         DataFrame with sentiment column added
     """
-    try:
-        df_sent = fetch_daily_ticker_sentiment(
-            API_KEY_MASSIVE, TARGET_TICKER,
-            SENTIMENT_START_DATE, SENTIMENT_END_DATE
-        )
-
-        # Map sentiment to DataFrame index
-        sentiment_dict = df_sent["sentiment"].to_dict()
-        df["sentiment"] = df.index.to_series().apply(
-            lambda d: sentiment_dict.get(d.normalize(), 0)
-        )
-
-    except Exception as e:
-        print(f"Sentiment fetch failed: {e}, filling with zeros")
-        df["sentiment"] = 0
+    # DEPRECATED: Sentiment support removed from single-ticker pipeline
+    # Use pipeline_multi.py with sentiment module (Polygon + FinBERT) instead
+    print("Warning: Sentiment disabled in legacy single-ticker pipeline. Use pipeline_multi.py for sentiment.")
+    df["sentiment"] = 0
 
     # Register the feature
     register_feature("sentiment", "no_shift")

@@ -4,12 +4,12 @@ Source: Reinforcement.ipynb training cells
 """
 import argparse
 
-from project_refactored.config import PPO_TIMESTEPS, PPO_WINDOW_SIZE, PPO_TRAIN_RATIO
-from project_refactored.pipeline import build_feature_dataset, prepare_for_ppo
-from project_refactored.envs.trading_env import (
+from .config import PPO_TIMESTEPS, PPO_WINDOW_SIZE, PPO_TRAIN_RATIO
+from .pipeline import build_feature_dataset, prepare_for_ppo
+from .envs.trading_env import (
     create_train_test_envs, create_eval_callback_env
 )
-from project_refactored.models.ppo import (
+from .models.ppo import (
     create_ppo_model, create_callbacks, train_ppo, save_ppo_model
 )
 

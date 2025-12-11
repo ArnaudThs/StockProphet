@@ -1,0 +1,10 @@
+{
+  "ticker": "GOOGL",
+  "start_date": "2020-01-01",
+  "end_date": "2025-06-30",
+  "window_size": 50,
+  "epochs": 20,
+  "probabilistic": false,
+  "data_hash": "696c69dc7cb1ada4737dc47057162b50",
+  "cached_at": "2025-12-10T23:15:34.767461"
+}

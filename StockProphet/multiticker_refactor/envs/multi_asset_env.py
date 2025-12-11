@@ -177,11 +177,14 @@ class MultiAssetContinuousEnv(gym.Env):
             reward = -10.0  # Large penalty
             terminated = True
             truncated = False
+            position_weight = self._position_weights[0] if self.n_tickers > 0 else 0.0
             info = {
                 'total_reward': self._total_reward,
                 'total_profit': self._total_profit,
                 'portfolio_value': 0.0,
-                'bankruptcy': True
+                'bankruptcy': True,
+                'tick': self._current_tick,
+                'position_weight': position_weight
             }
             return self._get_observation(), reward, terminated, truncated, info
 
@@ -239,11 +242,14 @@ class MultiAssetContinuousEnv(gym.Env):
 
                 reward = -10.0  # Large penalty
                 terminated = True
+                position_weight = self._position_weights[0] if self.n_tickers > 0 else 0.0
                 info = {
                     'total_reward': self._total_reward,
                     'total_profit': self._total_profit,
                     'portfolio_value': 0.0,
-                    'bankruptcy': True
+                    'bankruptcy': True,
+                    'tick': self._current_tick,
+                    'position_weight': position_weight
                 }
                 return obs, reward, terminated, truncated, info
 
@@ -282,11 +288,16 @@ class MultiAssetContinuousEnv(gym.Env):
             reward = 0.0
 
         # Build info dict
+        # For single-ticker compatibility, include position_weight (first ticker's weight)
+        position_weight = self._position_weights[0] if self.n_tickers > 0 else 0.0
+
         info = {
             'total_reward': self._total_reward,
             'total_profit': self._total_profit,
             'portfolio_value': portfolio_after if not terminated else portfolio_before,
-            'bankruptcy': False
+            'bankruptcy': False,
+            'tick': self._current_tick,
+            'position_weight': position_weight  # For single-ticker RL validator
         }
 
         # Get observation (handle terminated case where tick may be out of bounds)
@@ -434,3 +445,45 @@ def create_train_val_test_envs(
     )
 
     return train_env, val_env, test_env
+
+
+def create_single_ticker_env(
+    prices: np.ndarray,
+    signal_features: np.ndarray,
+    frame_bound: Tuple[int, int] = None,
+    **kwargs
+) -> MultiAssetContinuousEnv:
+    """
+    Helper to create single-ticker environment (for feature selection).
+
+    Args:
+        prices: Close prices, shape (n_timesteps,) for single ticker
+        signal_features: Features, shape (n_timesteps, n_features)
+        frame_bound: (start_idx, end_idx)
+        **kwargs: Environment parameters
+
+    Returns:
+        MultiAssetContinuousEnv configured for single ticker
+    """
+    # Reshape prices to (n_timesteps, 1) for single ticker
+    if prices.ndim == 1:
+        prices = prices.reshape(-1, 1)
+
+    # Single ticker map
+    ticker_map = {0: kwargs.pop('ticker', 'TICKER')}
+
+    # Filter out env_version and V2-specific reward parameters
+    # that MultiAssetContinuousEnv doesn't support
+    kwargs.pop('env_version', None)
+    kwargs.pop('trend_reward_multiplier', None)
+    kwargs.pop('conviction_reward', None)
+    kwargs.pop('exit_timing_reward', None)
+    kwargs.pop('patience_reward', None)
+
+    return MultiAssetContinuousEnv(
+        prices=prices,
+        signal_features=signal_features,
+        ticker_map=ticker_map,
+        frame_bound=frame_bound,
+        **kwargs
+    )

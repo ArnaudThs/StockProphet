@@ -163,23 +163,33 @@ def get_rnn_metadata_path(cache_key: str) -> Path:
     return RNN_CACHE_DIR / f"{cache_key}_meta.json"
 
 
-def compute_data_hash(df: pd.DataFrame, ticker: str) -> str:
+def compute_data_hash(df: pd.DataFrame, ticker: str, verbose: bool = True) -> str:
     """
     Compute hash of ticker's data to detect changes.
 
     Args:
         df: DataFrame with ticker data
         ticker: Ticker symbol
+        verbose: Print progress message
 
     Returns:
         MD5 hash string
     """
+    if verbose:
+        n_features = len([col for col in df.columns if col.startswith(f"{ticker}_")])
+        print(f"   Computing data hash for cache validation ({len(df)} days × {n_features} features)...")
+
     # Get all columns for this ticker
     ticker_cols = [col for col in df.columns if col.startswith(f"{ticker}_")]
 
     # Hash the data
     data_bytes = df[ticker_cols].to_numpy().tobytes()
-    return hashlib.md5(data_bytes).hexdigest()
+    hash_result = hashlib.md5(data_bytes).hexdigest()
+
+    if verbose:
+        print(f"   Hash computed: {hash_result[:8]}...")
+
+    return hash_result
 
 
 def load_rnn_cache(
@@ -304,7 +314,7 @@ def clear_cache(cache_type: str = "all"):
     Clear cached data.
 
     Args:
-        cache_type: Type of cache to clear ("yfinance", "rnn", or "all")
+        cache_type: Type of cache to clear ("yfinance", "rnn", "pipeline", or "all")
     """
     if cache_type in ["yfinance", "all"]:
         for file in YFINANCE_CACHE_DIR.glob("*.parquet"):
@@ -316,6 +326,169 @@ def clear_cache(cache_type: str = "all"):
             file.unlink()
         print(f"✅ Cleared RNN cache ({RNN_CACHE_DIR})")
 
+    if cache_type in ["pipeline", "all"]:
+        for file in PIPELINE_CACHE_DIR.glob("*"):
+            file.unlink()
+        print(f"✅ Cleared pipeline cache ({PIPELINE_CACHE_DIR})")
+
+
+# =============================================================================
+# PIPELINE DATAFRAME CACHE (Complete Dataset)
+# =============================================================================
+
+PIPELINE_CACHE_DIR = DATA_DIR / "pipeline_cache"
+PIPELINE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def get_pipeline_cache_key(
+    tickers: list,
+    start_date: str,
+    end_date: str,
+    include_rnn: bool,
+    include_sentiment: bool,
+    probabilistic_rnn: bool
+) -> str:
+    """
+    Generate cache key for complete pipeline DataFrame.
+
+    Args:
+        tickers: List of ticker symbols
+        start_date: Start date (YYYY-MM-DD)
+        end_date: End date (YYYY-MM-DD)
+        include_rnn: Whether RNN features are included
+        include_sentiment: Whether sentiment features are included
+        probabilistic_rnn: Whether using probabilistic LSTM
+
+    Returns:
+        Cache key string
+    """
+    ticker_str = "_".join(sorted(tickers))
+    rnn_str = "prob" if probabilistic_rnn else "simple" if include_rnn else "nornn"
+    sent_str = "sent" if include_sentiment else "nosent"
+
+    return f"pipeline_{ticker_str}_{start_date}_{end_date}_{rnn_str}_{sent_str}"
+
+
+def get_pipeline_cache_path(cache_key: str) -> Path:
+    """Get file path for pipeline cache."""
+    return PIPELINE_CACHE_DIR / f"{cache_key}.parquet"
+
+
+def get_pipeline_metadata_path(cache_key: str) -> Path:
+    """Get file path for pipeline cache metadata."""
+    return PIPELINE_CACHE_DIR / f"{cache_key}_meta.json"
+
+
+def load_pipeline_cache(
+    tickers: list,
+    start_date: str,
+    end_date: str,
+    include_rnn: bool,
+    include_sentiment: bool,
+    probabilistic_rnn: bool
+) -> Optional[tuple]:
+    """
+    Load cached pipeline DataFrame if available.
+
+    Args:
+        tickers: List of ticker symbols
+        start_date: Start date (YYYY-MM-DD)
+        end_date: End date (YYYY-MM-DD)
+        include_rnn: Whether RNN features are included
+        include_sentiment: Whether sentiment features are included
+        probabilistic_rnn: Whether using probabilistic LSTM
+
+    Returns:
+        Tuple of (df, metadata) or None if not found
+    """
+    cache_key = get_pipeline_cache_key(
+        tickers, start_date, end_date, include_rnn, include_sentiment, probabilistic_rnn
+    )
+    cache_path = get_pipeline_cache_path(cache_key)
+    meta_path = get_pipeline_metadata_path(cache_key)
+
+    if not cache_path.exists() or not meta_path.exists():
+        return None
+
+    try:
+        # Load metadata
+        with open(meta_path, 'r') as f:
+            metadata = json.load(f)
+
+        # Load DataFrame
+        df = pd.read_parquet(cache_path)
+        df.index = pd.to_datetime(df.index)
+
+        print(f"✅ Loaded pipeline cache: {cache_key}")
+        print(f"   Cached at: {metadata.get('cached_at', 'unknown')}")
+        print(f"   Shape: {df.shape}")
+
+        return df, metadata
+
+    except Exception as e:
+        print(f"⚠️  Warning: Failed to load pipeline cache: {e}")
+        return None
+
+
+def save_pipeline_cache(
+    df: pd.DataFrame,
+    metadata: dict,
+    tickers: list,
+    start_date: str,
+    end_date: str,
+    include_rnn: bool,
+    include_sentiment: bool,
+    probabilistic_rnn: bool
+):
+    """
+    Save complete pipeline DataFrame to cache.
+
+    Args:
+        df: Complete DataFrame with all features
+        metadata: Metadata dict (scalers, rnn_models, etc.)
+        tickers: List of ticker symbols
+        start_date: Start date (YYYY-MM-DD)
+        end_date: End date (YYYY-MM-DD)
+        include_rnn: Whether RNN features are included
+        include_sentiment: Whether sentiment features are included
+        probabilistic_rnn: Whether using probabilistic LSTM
+    """
+    cache_key = get_pipeline_cache_key(
+        tickers, start_date, end_date, include_rnn, include_sentiment, probabilistic_rnn
+    )
+    cache_path = get_pipeline_cache_path(cache_key)
+    meta_path = get_pipeline_metadata_path(cache_key)
+
+    try:
+        # Save DataFrame (parquet is fast and compressed)
+        df.to_parquet(cache_path)
+
+        # Prepare metadata for serialization (remove non-serializable items)
+        save_metadata = {
+            'tickers': tickers,
+            'start_date': start_date,
+            'end_date': end_date,
+            'include_rnn': include_rnn,
+            'include_sentiment': include_sentiment,
+            'probabilistic_rnn': probabilistic_rnn,
+            'feature_cols': metadata.get('feature_cols', []),
+            'train_end_idx': metadata.get('train_end_idx'),
+            'val_end_idx': metadata.get('val_end_idx'),
+            'shape': list(df.shape),
+            'cached_at': pd.Timestamp.now().isoformat(),
+            'cache_key': cache_key
+        }
+
+        # Save metadata
+        with open(meta_path, 'w') as f:
+            json.dump(save_metadata, f, indent=2)
+
+        print(f"✅ Saved pipeline cache: {cache_key}")
+        print(f"   Size: {cache_path.stat().st_size / (1024 * 1024):.2f} MB")
+
+    except Exception as e:
+        print(f"⚠️  Warning: Failed to save pipeline cache: {e}")
+
 
 def get_cache_stats() -> Dict[str, Any]:
     """
@@ -326,9 +499,11 @@ def get_cache_stats() -> Dict[str, Any]:
     """
     yfinance_files = list(YFINANCE_CACHE_DIR.glob("*.parquet"))
     rnn_files = list(RNN_CACHE_DIR.glob("*.npz"))
+    pipeline_files = list(PIPELINE_CACHE_DIR.glob("*.parquet"))
 
     yfinance_size = sum(f.stat().st_size for f in yfinance_files) / (1024 * 1024)  # MB
     rnn_size = sum(f.stat().st_size for f in rnn_files) / (1024 * 1024)  # MB
+    pipeline_size = sum(f.stat().st_size for f in pipeline_files) / (1024 * 1024)  # MB
 
     return {
         'yfinance_cache': {
@@ -339,5 +514,9 @@ def get_cache_stats() -> Dict[str, Any]:
             'count': len(rnn_files),
             'size_mb': round(rnn_size, 2)
         },
-        'total_size_mb': round(yfinance_size + rnn_size, 2)
+        'pipeline_cache': {
+            'count': len(pipeline_files),
+            'size_mb': round(pipeline_size, 2)
+        },
+        'total_size_mb': round(yfinance_size + rnn_size + pipeline_size, 2)
     }

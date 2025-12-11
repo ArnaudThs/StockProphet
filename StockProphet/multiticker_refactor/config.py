@@ -24,6 +24,9 @@ INCLUDE_SENTIMENT = False  # Set to True to include sentiment features
 SENTIMENT_START_DATE = "2024-01-01"  # Sentiment API only available from 2024
 SENTIMENT_END_DATE = "2025-06-30"
 
+# Polygon API key for news fetching
+POLYGON_API_KEY = "SiV7GQdKTF2ZtrAr1xNSrnNYP11dKCAC"
+
 # =============================================================================
 # RNN (LSTM) PARAMETERS
 # =============================================================================
@@ -125,11 +128,6 @@ FILLER = 99999   # Sentinel for missing macro distances
 MAX_DATA_LOSS_PCT = 0.20  # Maximum acceptable data loss in inner join (20%)
 
 # =============================================================================
-# API KEYS
-# =============================================================================
-API_KEY_MASSIVE = "SiV7GQdKTF2ZtrAr1xNSrnNYP11dKCAC"
-
-# =============================================================================
 # PATHS
 # =============================================================================
 BASE_DIR = Path(__file__).parent
@@ -140,7 +138,6 @@ DOCS_DIR = BASE_DIR / "docs"
 # Model save paths
 LSTM_MODEL_PATH = MODELS_DIR / "lstm_rnn.keras"
 PROB_LSTM_MODEL_PATH = MODELS_DIR / "prob_lstm.keras"
-PPO_MODEL_PATH = MODELS_DIR / "ppo_trading.zip"
 RECURRENT_PPO_MODEL_PATH = MODELS_DIR / "recurrent_ppo_trading.zip"
 VEC_NORMALIZE_PATH = MODELS_DIR / "vec_normalize.pkl"
 

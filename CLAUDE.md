@@ -1444,27 +1444,232 @@ Added `rnn_confidence = 1 / (rnn_sigma + 1e-8)` to observations
 
 ---
 
-# TODO: Feature Selection (REMINDER)
+# FEATURE SELECTION: STRATIFIED BACKWARD ELIMINATION
 
-**Task:** Reduce feature dimensionality from ~50 to 12 essential features
-**Priority:** High impact (40-60% faster training)
-**When:** Before production training runs
+## Overview
 
-**Essential features to keep:**
+**Goal:** Identify optimal feature set by removing features that reduce or don't improve trading performance
+**Method:** Stratified backward elimination with RL validation
+**Time Budget:** ~90 minutes on laptop
+**Implementation:** `multiticker_refactor/feature_selection/backward_elimination.py`
+
+## Three-Stage Pipeline
+
+### Stage 1: Statistical Screening (COMPLETE ✅)
+**Time:** ~5 minutes
+**Purpose:** Fast filtering using correlation, mutual information, RF importance
+**Input:** ~50 raw features
+**Output:** Top 30 features ranked by composite score
+**Location:** `feature_selection/results/statistical_results.json`
+
+**Key Findings:**
+- **Top performer:** `AAPL_rnn_conviction` (composite: 0.597)
+- **Sentiment rank:** 18/26 (composite: 0.147, low redundancy 0.23)
+- **High redundancy:** OHLC features (r=0.999), sigma/confidence pairs (r=1.0)
+
+### Stage 2: Backward Elimination with RL Validation (IN PROGRESS 🔄)
+**Time:** ~90 minutes
+**Purpose:** Remove features that hurt/don't improve PPO trading Sharpe
+**Method:** Stratified removal + early stopping
+
+**Configuration:**
 ```python
-essential_features = [
-    'target_close',
-    'Return_1d',
-    'RSI',
-    'rnn_mu_1d', 'rnn_sigma_1d', 'rnn_prob_up_1d',
-    'rnn_mu_5d', 'rnn_prob_up_5d',
-    'rnn_confidence_1d',  # New: 1/sigma
-    'sentiment',
-    'position_weight'
-]
+BACKWARD_ELIMINATION_CONFIG = {
+    'search_timesteps': 25_000,      # Fast iterations (7 min/test)
+    'search_seeds': 2,               # Fast iterations
+    'final_timesteps': 50_000,       # Final validation (15 min)
+    'final_seeds': 3,                # Final validation
+    'max_sharpe_drop': 0.05,         # 5% degradation → revert
+    'redundancy_threshold': 0.95,    # Auto-remove if r>0.95
+}
 ```
 
-Drop: Raw OHLV, Volume, most technical indicators (already captured by RNN)
+**Phase Breakdown:**
+
+#### Phase 1: Remove Redundant Pairs (0 min, no testing needed)
+Auto-remove lower-ranked feature from pairs with r>0.95:
+```python
+redundant_pairs = [
+    ('AAPL_rnn_sigma_1d', 'AAPL_rnn_confidence_1d'),   # r=1.0 → remove confidence
+    ('AAPL_rnn_sigma_5d', 'AAPL_rnn_confidence_5d'),   # r=1.0 → remove confidence
+    ('AAPL_Open', 'AAPL_Low'),                         # r=0.999 → remove Low
+    ('days_to_cpi', 'days_since_cpi'),                 # r=0.77 → remove days_to_cpi
+]
+# Result: 26 features → 22 features (saves 4 RL tests)
+```
+
+#### Phase 2: Test Weak Feature Removal (~15 min, 2 tests)
+Test batch removal of features with composite_score < 0.20:
+```python
+weak_features = [
+    'AAPL_rnn_mu_5d', 'month', 'quarter'  # Composite < 0.20
+]
+# Test 1: Baseline with 22 features
+# Test 2: Remove weak features → 19 features
+# Keep removal if Sharpe improves or drops <5%
+```
+
+#### Phase 3: Greedy Backward Elimination (~60 min, ~8 tests)
+Iteratively remove worst performer from remaining features:
+
+```python
+# Start with features from Phase 2 (19 or 22 features)
+# Loop:
+#   1. Find feature with lowest marginal contribution
+#   2. Test removal with 25k timesteps, 2 seeds
+#   3. If Sharpe drop < 5%: permanently remove
+#   4. If Sharpe drop >= 5%: revert, mark as "essential"
+#   5. Stop when all remaining features are "essential"
+#
+# Expected: ~8 iterations before all features marked essential
+# Time: 8 tests × 7 min = 56 min
+```
+
+**Marginal contribution calculation:**
+```python
+# For each feature, estimate impact using statistical scores
+marginal_score = (
+    0.3 * corr_with_returns +
+    0.3 * mutual_info_normalized +
+    0.2 * rf_importance_normalized +
+    0.2 * (1 - redundancy)  # Penalize redundant features
+)
+# Remove feature with lowest marginal_score
+```
+
+#### Phase 4: Final Validation (~15 min, 1 test)
+Validate final feature set with full parameters:
+```python
+# Test final feature set with:
+#   - 50k timesteps (vs 25k in search)
+#   - 3 random seeds (vs 2 in search)
+# Report: Sharpe, return, max drawdown, feature importance
+```
+
+### Stage 3: Production Use
+**Input:** Final selected features from Stage 2
+**Output:** Trained PPO model with optimal feature set
+**Expected Benefits:**
+- 40-60% faster training (fewer features)
+- Better generalization (less overfitting)
+- Clearer model interpretability
+
+## Implementation Details
+
+**File Structure:**
+```
+multiticker_refactor/feature_selection/
+├── config.py                    # Configuration parameters
+├── main.py                      # Original 2-stage pipeline
+├── backward_elimination.py      # NEW: Stratified elimination
+├── statistical_selector.py      # Stage 1 implementation
+├── rl_validator.py             # RecurrentPPO testing
+└── results/
+    ├── statistical_results.json          # Stage 1 output
+    ├── elimination_history.json          # NEW: Phase-by-phase results
+    └── selected_features.json            # Final feature set
+```
+
+**Key Functions:**
+
+```python
+def run_backward_elimination(
+    ticker: str,
+    statistical_results_path: str,
+    output_dir: str,
+    config: dict = BACKWARD_ELIMINATION_CONFIG
+) -> tuple[list, pd.DataFrame]:
+    """
+    Run stratified backward elimination.
+
+    Returns:
+        final_features: List of selected feature names
+        elimination_df: DataFrame with phase-by-phase results
+    """
+    # Phase 1: Remove redundant pairs
+    features = remove_redundant_pairs(statistical_results)
+
+    # Phase 2: Test weak feature removal
+    features = test_weak_removal(features, ...)
+
+    # Phase 3: Greedy elimination
+    features, history = greedy_elimination(features, ...)
+
+    # Phase 4: Final validation
+    final_metrics = validate_final_features(features, ...)
+
+    return features, history
+```
+
+## Usage
+
+```bash
+cd StockProphet
+
+# Run full 3-stage pipeline (~100 min total)
+python -m multiticker_refactor.feature_selection.main \
+    --ticker AAPL \
+    --stage elimination \
+    --timesteps 25000 \
+    --seeds 2
+
+# Or run backward elimination standalone (assumes statistical stage done)
+python -m multiticker_refactor.feature_selection.backward_elimination \
+    --ticker AAPL \
+    --input feature_selection/results/statistical_results.json
+```
+
+## Expected Output
+
+**elimination_history.json:**
+```json
+{
+  "phase1_redundancy_removal": {
+    "removed": ["AAPL_rnn_confidence_1d", "AAPL_rnn_confidence_5d", ...],
+    "remaining": 22,
+    "time_saved": "0 min (no testing)"
+  },
+  "phase2_weak_removal": {
+    "baseline_sharpe": 0.65,
+    "after_removal_sharpe": 0.68,
+    "removed": ["AAPL_rnn_mu_5d", "month", "quarter"],
+    "remaining": 19,
+    "time": "15 min"
+  },
+  "phase3_greedy_elimination": [
+    {
+      "iteration": 1,
+      "tested_feature": "day_of_week",
+      "sharpe_without": 0.67,
+      "sharpe_drop": -1.5%,
+      "decision": "remove",
+      "remaining": 18
+    },
+    // ... 7 more iterations
+  ],
+  "phase4_final_validation": {
+    "final_features": ["AAPL_rnn_conviction", "days_since_cpi", ...],
+    "sharpe": 0.72,
+    "return": 15.3%,
+    "max_drawdown": -8.2%,
+    "n_features": 12
+  }
+}
+```
+
+## Decision Criteria
+
+**Remove feature if:**
+- Redundancy r > 0.95 with higher-ranked feature (Phase 1)
+- Composite score < 0.20 AND removal doesn't hurt Sharpe (Phase 2)
+- Removal causes Sharpe drop < 5% (Phase 3)
+
+**Keep feature if:**
+- Removal causes Sharpe drop >= 5%
+- Low redundancy (<0.5) even if weak composite score
+- Top 5 features by composite score (always essential)
+
+---
 
 ---
 

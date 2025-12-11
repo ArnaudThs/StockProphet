@@ -1,33 +1,23 @@
 """
-Evaluation functions for PPO and RecurrentPPO trading agents.
+Evaluation functions for RecurrentPPO trading agents.
 Source: Reinforcement.ipynb evaluate_agent function
 
 Supports:
-- Standard PPO and RecurrentPPO (which requires LSTM state management)
+- RecurrentPPO (with LSTM state management)
 - Discrete environments (FlexibleTradingEnv)
 - Continuous environments (ContinuousTradingEnv) with dollar-based metrics
 """
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import VecNormalize
+from sb3_contrib import RecurrentPPO
 
-# Check for RecurrentPPO
-try:
-    from sb3_contrib import RecurrentPPO
-    RECURRENT_PPO_AVAILABLE = True
-except ImportError:
-    RECURRENT_PPO_AVAILABLE = False
-    RecurrentPPO = None
-
-from project_refactored.config import ENV_TYPE, INITIAL_CAPITAL
+from .config import ENV_TYPE, INITIAL_CAPITAL
 
 
 def _is_recurrent_model(model) -> bool:
     """Check if model is a RecurrentPPO model."""
-    if not RECURRENT_PPO_AVAILABLE:
-        return False
     return isinstance(model, RecurrentPPO)
 
 

@@ -17,7 +17,7 @@ from gym_anytrading.envs.flexible_env import FlexibleTradingEnv
 from gym_anytrading.envs.continuous_env import ContinuousTradingEnv
 from gym_anytrading.envs.continuous_env_v2 import ContinuousTradingEnvV2
 
-from project_refactored.config import (
+from ..config import (
     PPO_WINDOW_SIZE, PPO_TRAIN_RATIO, REWARD_CONFIG, VEC_NORMALIZE_PATH,
     ENV_TYPE, INITIAL_CAPITAL, CONTINUOUS_ENV_CONFIG, CONTINUOUS_ENV_VERSION,
     TREND_REWARD_MULTIPLIER, CONVICTION_REWARD, EXIT_TIMING_REWARD, PATIENCE_REWARD

@@ -5,21 +5,21 @@ Integrates: OHLCV download, technical indicators, calendar features, RNN predict
 import numpy as np
 import pandas as pd
 
-from project_refactored.config import (
+from multiticker_refactor.config import (
     TARGET_TICKER, SUPPORT_TICKERS, START_DATE, END_DATE,
     SENTIMENT_START_DATE, SENTIMENT_END_DATE,
     API_KEY_MASSIVE, LSTM_WINDOW_SIZE, LSTM_EPOCHS, LSTM_BATCH_SIZE,
     LSTM_MODEL_PATH, PROB_LSTM_MODEL_PATH
 )
-from project_refactored.data.downloader import download_prices, clean_raw
-from project_refactored.data.features import (
+from multiticker_refactor.data.downloader import download_prices, clean_raw
+from multiticker_refactor.data.features import (
     initialize_feature_registry, add_all_technicals, add_calendar_macro,
     generate_cross_ticker_features, apply_shift_engine, trim_date_range,
     clean_final_dataset, data_integrity_report, generate_markdown_feature_doc,
     register_feature
 )
-from project_refactored.data.sentiment import fetch_daily_ticker_sentiment
-from project_refactored.models.rnn import (
+from multiticker_refactor.data.sentiment import fetch_daily_ticker_sentiment
+from multiticker_refactor.models.rnn import (
     train_and_predict, save_model,
     train_and_predict_probabilistic, save_probabilistic_model
 )

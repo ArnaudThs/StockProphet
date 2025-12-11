@@ -10,14 +10,12 @@ import numpy as np
 import pandas as pd
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
-# Import environments from gym-anytrading
-import sys
-sys.path.append("/Users/pnl1f276/code/ArnaudThs/StockProphet/gym-anytrading")
-from gym_anytrading.envs.flexible_env import FlexibleTradingEnv
-from gym_anytrading.envs.continuous_env import ContinuousTradingEnv
-from gym_anytrading.envs.continuous_env_v2 import ContinuousTradingEnvV2
+# Import environments from local copies (self-contained)
+from .flexible_env import FlexibleTradingEnv
+from .continuous_env import ContinuousTradingEnv
+from .continuous_env_v2 import ContinuousTradingEnvV2
 
-from project_refactored.config import (
+from ..config import (
     PPO_WINDOW_SIZE, PPO_TRAIN_RATIO, REWARD_CONFIG, VEC_NORMALIZE_PATH,
     ENV_TYPE, INITIAL_CAPITAL, CONTINUOUS_ENV_CONFIG, CONTINUOUS_ENV_VERSION,
     TREND_REWARD_MULTIPLIER, CONVICTION_REWARD, EXIT_TIMING_REWARD, PATIENCE_REWARD

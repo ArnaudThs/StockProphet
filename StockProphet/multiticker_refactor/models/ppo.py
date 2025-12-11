@@ -16,7 +16,7 @@ except ImportError:
     RECURRENT_PPO_AVAILABLE = False
     RecurrentPPO = None
 
-from project_refactored.config import (
+from multiticker_refactor.config import (
     PPO_TIMESTEPS, PPO_MODEL_PATH, VEC_NORMALIZE_PATH, RECURRENT_PPO_MODEL_PATH,
     ENV_TYPE
 )

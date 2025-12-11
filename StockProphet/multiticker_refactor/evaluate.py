@@ -21,7 +21,7 @@ except ImportError:
     RECURRENT_PPO_AVAILABLE = False
     RecurrentPPO = None
 
-from project_refactored.config import ENV_TYPE, INITIAL_CAPITAL
+from multiticker_refactor.config import ENV_TYPE, INITIAL_CAPITAL
 
 
 def _is_recurrent_model(model) -> bool:

@@ -346,7 +346,7 @@ def train_probabilistic_lstm(df, target_col: str, window_size: int = LSTM_WINDOW
     Returns:
         Tuple of (model, scaler, history)
     """
-    from project_refactored.config import PROB_LSTM_HORIZONS, PROB_LSTM_EPOCHS, PROB_LSTM_UNITS
+    from multiticker_refactor.config import PROB_LSTM_HORIZONS, PROB_LSTM_EPOCHS, PROB_LSTM_UNITS
 
     if horizons is None:
         horizons = PROB_LSTM_HORIZONS
@@ -527,7 +527,7 @@ def train_and_predict_probabilistic(df, target_col: str, window_size: int = LSTM
         - rnn_trend_alignment
         - rnn_conviction
     """
-    from project_refactored.config import PROB_LSTM_HORIZONS, PROB_LSTM_EPOCHS, PROB_LSTM_UNITS
+    from multiticker_refactor.config import PROB_LSTM_HORIZONS, PROB_LSTM_EPOCHS, PROB_LSTM_UNITS
 
     if horizons is None:
         horizons = PROB_LSTM_HORIZONS

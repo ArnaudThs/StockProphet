@@ -12,21 +12,21 @@ Usage:
 import argparse
 import os
 
-from project_refactored.config import (
+from multiticker_refactor.config import (
     PPO_TIMESTEPS, PPO_MODEL_PATH, VEC_NORMALIZE_PATH, PPO_WINDOW_SIZE, PPO_TRAIN_RATIO,
     RECURRENT_PPO_MODEL_PATH, ENV_TYPE, INITIAL_CAPITAL
 )
-from project_refactored.pipeline import build_feature_dataset, prepare_for_ppo
-from project_refactored.envs.trading_env import (
+from multiticker_refactor.pipeline import build_feature_dataset, prepare_for_ppo
+from multiticker_refactor.envs.trading_env import (
     create_train_test_envs, create_eval_callback_env, load_test_env
 )
-from project_refactored.models.ppo import (
+from multiticker_refactor.models.ppo import (
     create_ppo_model, create_callbacks, train_ppo, save_ppo_model, load_ppo_model,
     create_recurrent_ppo_model, train_recurrent_ppo, save_recurrent_ppo_model,
     load_recurrent_ppo_model, RECURRENT_PPO_AVAILABLE,
     create_continuous_ppo_model, create_continuous_recurrent_ppo_model
 )
-from project_refactored.evaluate import evaluate_agent_auto
+from multiticker_refactor.evaluate import evaluate_agent_auto
 
 
 def train_mode(

@@ -1,21 +1,15 @@
 """
 Trading environment wrappers for PPO training.
-Source: Reinforcement.ipynb environment setup cells
 
-Supports both:
-- Discrete environment (FlexibleTradingEnv): action in {0=short, 1=long}
-- Continuous environment (ContinuousTradingEnv): action in [-1, 1] position weight
+Uses UnifiedTradingEnv for all cases (single-ticker and multi-ticker).
+Backward compatible with old environment interfaces.
 """
 import numpy as np
 import pandas as pd
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
-# Import environments from gym-anytrading
-import sys
-sys.path.append("/Users/pnl1f276/code/ArnaudThs/StockProphet/gym-anytrading")
-from gym_anytrading.envs.flexible_env import FlexibleTradingEnv
-from gym_anytrading.envs.continuous_env import ContinuousTradingEnv
-from gym_anytrading.envs.continuous_env_v2 import ContinuousTradingEnvV2
+# Import unified environment
+from .trading_env_unified import UnifiedTradingEnv
 
 from ..config import (
     PPO_WINDOW_SIZE, PPO_TRAIN_RATIO, REWARD_CONFIG, VEC_NORMALIZE_PATH,
@@ -70,41 +64,14 @@ def make_discrete_env(
     reward_config: dict = None
 ):
     """
-    Factory function to create a discrete FlexibleTradingEnv.
-
-    Args:
-        df: DataFrame with features
-        prices: Array of close prices
-        signal_features: Array of features (n_samples, n_features)
-        frame_bound: Tuple of (start_tick, end_tick)
-        window_size: Observation window size
-        reward_config: Reward configuration dict
-
-    Returns:
-        Callable that creates the environment
+    DEPRECATED: Discrete environment is no longer used.
+    Continuous environment (UnifiedTradingEnv) is used for all cases.
+    This function is kept for backward compatibility.
     """
-    if reward_config is None:
-        reward_config = REWARD_CONFIG
-
-    def _init():
-        env = FlexibleTradingEnv(
-            df=df,
-            prices=prices,
-            signal_features=signal_features,
-            window_size=window_size,
-            frame_bound=frame_bound,
-            include_position_in_obs=True,
-            fee=reward_config.get('fee', 0.0005),
-            holding_cost=reward_config.get('holding_cost', 0.0),
-            short_borrow_cost=reward_config.get('short_borrow_cost', 0.0),
-        )
-        # Apply extra shaping attributes only if the env supports them
-        for k, v in reward_config.items():
-            if hasattr(env, k):
-                setattr(env, k, v)
-        return env
-
-    return _init
+    raise NotImplementedError(
+        "Discrete environment is deprecated. "
+        "Use make_continuous_env() with ENV_TYPE='continuous' instead."
+    )
 
 
 def make_continuous_env(
@@ -118,17 +85,17 @@ def make_continuous_env(
     env_version: str = None
 ):
     """
-    Factory function to create a continuous ContinuousTradingEnv.
+    Factory function to create UnifiedTradingEnv (continuous).
 
     Args:
-        df: DataFrame with features
+        df: DataFrame with features (for backward compatibility, unused)
         prices: Array of close prices
         signal_features: Array of features (n_samples, n_features)
         frame_bound: Tuple of (start_tick, end_tick)
         window_size: Observation window size
         initial_capital: Starting capital in dollars
         env_config: Environment configuration dict
-        env_version: 'v1' (basic) or 'v2' (trend-adaptive rewards)
+        env_version: Ignored (UnifiedTradingEnv uses risk-adjusted rewards)
 
     Returns:
         Callable that creates the environment
@@ -137,41 +104,19 @@ def make_continuous_env(
         initial_capital = INITIAL_CAPITAL
     if env_config is None:
         env_config = CONTINUOUS_ENV_CONFIG
-    if env_version is None:
-        env_version = CONTINUOUS_ENV_VERSION
 
     def _init():
-        if env_version == 'v2':
-            # Use V2 with trend-adaptive rewards
-            env = ContinuousTradingEnvV2(
-                df=df,
-                prices=prices,
-                signal_features=signal_features,
-                window_size=window_size,
-                frame_bound=frame_bound,
-                initial_capital=initial_capital,
-                fee=env_config.get('fee', 0.001),
-                short_borrow_rate=env_config.get('short_borrow_rate', 0.0001),
-                include_position_in_obs=True,
-                # V2 reward parameters
-                trend_reward_multiplier=TREND_REWARD_MULTIPLIER,
-                conviction_reward=CONVICTION_REWARD,
-                exit_timing_reward=EXIT_TIMING_REWARD,
-                patience_reward=PATIENCE_REWARD,
-            )
-        else:
-            # Use V1 (basic)
-            env = ContinuousTradingEnv(
-                df=df,
-                prices=prices,
-                signal_features=signal_features,
-                window_size=window_size,
-                frame_bound=frame_bound,
-                initial_capital=initial_capital,
-                fee=env_config.get('fee', 0.001),
-                short_borrow_rate=env_config.get('short_borrow_rate', 0.0001),
-                include_position_in_obs=True,
-            )
+        env = UnifiedTradingEnv(
+            prices=prices,
+            signal_features=signal_features,
+            ticker_map={0: "TICKER_0"},  # Single ticker
+            initial_capital=initial_capital,
+            transaction_fee_pct=env_config.get('fee', 0.001),
+            short_borrow_rate=env_config.get('short_borrow_rate', 0.0001),
+            window_size=window_size,
+            frame_bound=frame_bound,
+            df=df,  # For backward compat
+        )
         return env
 
     return _init

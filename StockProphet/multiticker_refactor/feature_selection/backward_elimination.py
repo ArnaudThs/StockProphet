@@ -22,7 +22,7 @@ import numpy as np
 
 from .config import BACKWARD_ELIMINATION_CONFIG, RESULTS_DIR
 from .rl_validator import RLFeatureValidator
-from ..pipeline_multi import build_multi_ticker_dataset
+from ..pipeline import build_multi_ticker_dataset
 
 
 def load_statistical_results(input_path: str) -> Tuple[List[str], pd.DataFrame]:

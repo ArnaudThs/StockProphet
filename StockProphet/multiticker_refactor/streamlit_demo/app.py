@@ -10,6 +10,11 @@ import plotly.express as px
 import pandas as pd
 import numpy as np
 import time
+
+# =============================================================================
+# CONFIGURATION
+# =============================================================================
+PLAYBACK_SPEED = 0.5  # Seconds between frames (0.05 = 20 fps, 0.1 = 10 fps)
 from utils import (
     load_episode_data,
     calculate_metrics,
@@ -26,7 +31,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Custom CSS for ultra-compact layout (50% smaller, MacBook Pro 14" optimized)
+# Custom CSS for ultra-compact layout (your original unchanged)
 st.markdown("""
 <style>
     .main .block-container {
@@ -77,7 +82,6 @@ st.markdown("""
         gap: 0.5rem !important;
         padding: 5px !important;
     }
-    /* Column styling to prevent edge clipping */
     [data-testid="column"] {
         padding: 5px !important;
     }
@@ -95,12 +99,10 @@ st.markdown("""
         margin-top: 0.3rem !important;
         margin-bottom: 0.3rem !important;
     }
-    /* Slider styling */
     .stSlider {
         padding-top: 0.2rem !important;
         padding-bottom: 0.2rem !important;
     }
-    /* Radio button styling */
     .stRadio > div {
         gap: 0.3rem !important;
     }
@@ -113,8 +115,8 @@ st.markdown("""
 # Initialize session state for playback
 if 'playing' not in st.session_state:
     st.session_state.playing = False
-if 'day_slider' not in st.session_state:
-    st.session_state.day_slider = 0
+if 'current_step' not in st.session_state:
+    st.session_state.current_step = 0
 
 # Load data
 @st.cache_data
@@ -140,12 +142,9 @@ initial_capital = metadata['initial_capital']
 n_steps = metadata['n_steps']
 dates = metadata.get('dates', {})  # Get date mapping if available
 
-# Calculate metrics
-metrics = calculate_metrics(portfolio_history, initial_capital)
-
 # Title
 st.markdown(
-    "<div style='font-size:70px; font-weight:700;'>Stock Prophet</div>",
+    "<div style='font-size:40px; font-weight:700;'>Stock Prophet</div>",
     unsafe_allow_html=True
 )
 
@@ -156,201 +155,166 @@ with col_play:
     if st.button("▶️ Play" if not st.session_state.playing else "⏸️ Pause"):
         st.session_state.playing = not st.session_state.playing
 
+# Sync slider widget state with current_step BEFORE rendering
+if 'slider_widget' not in st.session_state:
+    st.session_state.slider_widget = st.session_state.current_step
+else:
+    st.session_state.slider_widget = st.session_state.current_step
+
+def on_slider_change():
+    st.session_state.current_step = st.session_state.slider_widget
+
 with col_slider:
-    # Slider uses key as source of truth - session state IS the slider value
-    current_step = st.slider(
+    st.slider(
         "Select Trading Day",
         min_value=0,
         max_value=n_steps - 1,
-        key="day_slider",
+        key="slider_widget",
+        on_change=on_slider_change,
         help=f"Slide to view portfolio state on different days"
     )
 
-# Debug: Check if dates are loaded
-if not dates:
-    st.warning("⚠️ Dates not found in metadata. Run evaluation again to generate date information.")
+# STATIC WIDGETS THAT MUST NOT BE IN THE DYNAMIC LOOP
+st.markdown("#### Portfolio Evolution")
 
-# Show date instead of day number if dates are available
-if dates and str(current_step) in dates:
-    current_date = dates[str(current_step)]
-    st.caption(f"**{current_date}** (Day {current_step + 1} of {n_steps})")
+chart_type = st.radio(
+    "Chart Type",
+    options=["Portfolio Value", "Price Chart"],
+    horizontal=True,
+    label_visibility="collapsed"
+)
+
+if chart_type == "Price Chart":
+    selected_ticker_idx = st.selectbox(
+        "Ticker",
+        options=range(len(tickers)),
+        format_func=lambda i: tickers[i],
+        label_visibility="collapsed"
+    )
 else:
-    st.caption(f"**Day {current_step + 1}** of {n_steps}")
+    selected_ticker_idx = None
 
 st.markdown("---")
 
 # ===========================================================================
-# MAIN LAYOUT: LEFT SIDEBAR (30%) + RIGHT CONTENT (70%)
+# DYNAMIC FRAME (ONLY THIS RE-RENDERS)
 # ===========================================================================
-col_left, col_right = st.columns([3, 7])
+frame = st.empty()
 
-# ===========================================================================
-# LEFT COLUMN: Metrics + Allocation
-# ===========================================================================
-with col_left:
-    # Metrics
-    st.metric("Final Value", format_currency(metrics['final_value']))
-    st.metric("Return", format_percentage(metrics['total_return']))
-    st.metric("Sharpe", f"{metrics['sharpe_ratio']:.2f}")
-    st.metric("Max DD", format_percentage(metrics['max_drawdown']))
-    st.metric("Win Rate", f"{metrics['win_rate']:.1f}%")
+def render_dynamic(step):
+    with frame.container():
+        # ===========================================================
+        # DATE
+        # ===========================================================
+        if dates and str(step) in dates:
+            current_date = dates[str(step)]
+            st.caption(f"**{current_date}** (Day {step + 1} of {n_steps})")
+        else:
+            st.caption(f"**Day {step + 1}** of {n_steps}")
 
-    st.markdown("---")
+        st.markdown("---")
 
-    # Tickers + Allocation
-    st.markdown("#### Current Allocation")
-    st.caption(f"**Tickers:** {', '.join(tickers)}")
+        # ===========================================================
+        # MAIN LAYOUT
+        # ===========================================================
+        col_left, col_right = st.columns([3, 7])
 
-    allocation = get_current_allocation(actions, current_step, tickers)
-    allocation_df = pd.DataFrame({
-        'Asset': list(allocation.keys()),
-        'Percentage': list(allocation.values())
-    })
-    allocation_df = allocation_df[np.abs(allocation_df['Percentage']) > 0.1]
+        # LEFT COLUMN
+        with col_left:
 
-    if len(allocation_df) > 0:
-        fig_pie = px.pie(
-            allocation_df,
-            values='Percentage',
-            names='Asset',
-            hole=0.4
-        )
+            metrics = calculate_metrics(portfolio_history[:step + 1], initial_capital)
 
-        fig_pie.update_traces(
-            textposition='inside',
-            textinfo='percent+label',
-            textfont_size=8
-        )
+            st.metric("Portfolio Value", format_currency(metrics['final_value']))
+            st.metric("Return", format_percentage(metrics['total_return']))
+            st.metric("Win Rate", f"{metrics['win_rate']:.1f}%")
 
-        fig_pie.update_layout(
-            height=200,
-            margin=dict(l=15, r=15, t=15, b=20),
-            showlegend=False,
-            autosize=True
-        )
+            st.markdown("---")
 
-        st.plotly_chart(fig_pie, use_container_width=True)
-    else:
-        st.info("No allocations")
+            st.markdown("#### Current Allocation")
+            st.caption(f"**Tickers:** {', '.join(tickers)}")
 
-# ===========================================================================
-# RIGHT COLUMN: Chart + Trades
-# ===========================================================================
-with col_right:
-    # Row 1: Chart with toggle
-    st.markdown("#### Portfolio Evolution")
+            allocation = get_current_allocation(actions, step, tickers)
+            allocation_df = pd.DataFrame({
+                'Asset': list(allocation.keys()),
+                'Percentage': list(allocation.values())
+            }).query("abs(Percentage) > 0.1")
 
-    chart_type = st.radio(
-        "Chart Type",
-        options=["Portfolio Value", "Price Chart"],
-        horizontal=True,
-        label_visibility="collapsed"
-    )
+            if len(allocation_df) > 0:
+                fig_pie = px.pie(
+                    allocation_df,
+                    values='Percentage',
+                    names='Asset',
+                    hole=0.4
+                )
+                fig_pie.update_traces(textposition='inside', textinfo='percent+label', textfont_size=8)
+                fig_pie.update_layout(height=200, margin=dict(l=15, r=15, t=15, b=20), showlegend=False)
+                st.plotly_chart(fig_pie, use_container_width=True)
+            else:
+                st.info("No allocations")
 
-    if chart_type == "Portfolio Value":
-        portfolio_df = pd.DataFrame({
-            'Day': np.arange(len(portfolio_history)),
-            'Portfolio Value': portfolio_history
-        })
+        # RIGHT COLUMN
+        with col_right:
+            if chart_type == "Portfolio Value":
+                portfolio_df = pd.DataFrame({
+                    'Day': np.arange(len(portfolio_history)),
+                    'Portfolio Value': portfolio_history
+                })
 
-        fig = go.Figure()
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(x=portfolio_df['Day'], y=portfolio_df['Portfolio Value'], mode='lines'))
+                fig.add_trace(go.Scatter(x=[step], y=[portfolio_history[step]], mode='markers'))
 
-        fig.add_trace(go.Scatter(
-            x=portfolio_df['Day'],
-            y=portfolio_df['Portfolio Value'],
-            mode='lines',
-            name='Portfolio',
-            line=dict(color='#1f77b4', width=2)
-        ))
+                fig.add_hline(y=initial_capital, line_dash="dash", line_color="gray")
+                fig.update_layout(height=220, margin=dict(l=50, r=15, t=10, b=35), showlegend=False)
+                st.plotly_chart(fig, use_container_width=True)
 
-        fig.add_trace(go.Scatter(
-            x=[current_step],
-            y=[portfolio_history[current_step]],
-            mode='markers',
-            name='Current',
-            marker=dict(size=10, color='red')
-        ))
+            else:
+                ticker_prices = prices[:, selected_ticker_idx]
 
-        fig.add_hline(y=initial_capital, line_dash="dash", line_color="gray")
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(x=np.arange(len(ticker_prices)), y=ticker_prices, mode='lines'))
+                fig.add_trace(go.Scatter(x=[step], y=[ticker_prices[step]], mode='markers'))
 
-        fig.update_layout(
-            xaxis_title="Day",
-            yaxis_title="Value ($)",
-            hovermode='x unified',
-            height=220,
-            showlegend=False,
-            margin=dict(l=50, r=15, t=10, b=35),
-            font=dict(size=9),
-            autosize=True
-        )
+                fig.update_layout(height=220, margin=dict(l=50, r=15, t=10, b=35), showlegend=False)
+                st.plotly_chart(fig, use_container_width=True)
 
-        st.plotly_chart(fig, use_container_width=True)
+            # Trades table
+            st.markdown("---")
+            st.markdown("#### Today's Trades")
 
-    else:  # Price Chart
-        selected_ticker_idx = st.selectbox(
-            "Ticker",
-            options=range(len(tickers)),
-            format_func=lambda i: tickers[i],
-            label_visibility="collapsed"
-        )
+            curr_alloc = get_current_allocation(actions, step, tickers)
+            prev_alloc = get_current_allocation(actions, max(0, step - 1), tickers)
 
-        ticker_prices = prices[:, selected_ticker_idx]
+            rows = []
+            portfolio_value = portfolio_history[step]
+            current_prices = prices[min(step, len(prices)-1)]
 
-        fig = go.Figure()
+            for asset, curr_pct in curr_alloc.items():
+                prev_pct = prev_alloc[asset]
+                change_pct = curr_pct - prev_pct
+                dollar_amount = abs(change_pct / 100) * portfolio_value
 
-        fig.add_trace(go.Scatter(
-            x=np.arange(len(ticker_prices)),
-            y=ticker_prices,
-            mode='lines',
-            name=tickers[selected_ticker_idx],
-            line=dict(color='#2ca02c', width=2)
-        ))
+                if abs(change_pct) < 0.1:
+                    trade_str = f"— {curr_pct:.1f}%"
+                elif change_pct > 0:
+                    trade_str = f"⬆︎ +{change_pct:.1f}% (${dollar_amount:.0f})"
+                else:
+                    trade_str = f"⬇︎ {change_pct:.1f}% (${dollar_amount:.0f})"
 
-        fig.add_trace(go.Scatter(
-            x=[current_step],
-            y=[ticker_prices[current_step]],
-            mode='markers',
-            name='Current',
-            marker=dict(size=10, color='red')
-        ))
+                rows.append({"Asset": asset, "Trade": trade_str})
 
-        fig.update_layout(
-            xaxis_title="Day",
-            yaxis_title="Price ($)",
-            hovermode='x unified',
-            height=220,
-            showlegend=False,
-            margin=dict(l=50, r=15, t=10, b=35),
-            font=dict(size=9),
-            autosize=True
-        )
+            st.dataframe(pd.DataFrame(rows), use_container_width=True, height=200)
 
-        st.plotly_chart(fig, use_container_width=True)
+# INITIAL RENDER
+render_dynamic(st.session_state.current_step)
 
-    # Row 2: Allocation table
-    st.markdown("---")
-    st.markdown("#### Current Allocation")
-
-    # Show current allocation
-    allocation = get_current_allocation(actions, current_step, tickers)
-    allocation_data = {
-        'Ticker': list(allocation.keys()),
-        'Allocation': [f"{v:.1f}%" for v in allocation.values()]
-    }
-
-    allocation_df = pd.DataFrame(allocation_data)
-    st.dataframe(allocation_df, use_container_width=True, height=120, hide_index=True)
-
-# ===========================================================================
-# PLAYBACK LOOP (must be at the end)
-# ===========================================================================
+# PLAYBACK LOOP
 if st.session_state.playing:
-    time.sleep(0.05)  # Adjust speed (0.05 = 20 fps)
-    st.session_state.day_slider += 1
+    time.sleep(PLAYBACK_SPEED)
+    st.session_state.current_step += 1
 
-    # Stop at end
-    if st.session_state.day_slider >= n_steps:
-        st.session_state.day_slider = 0
+    if st.session_state.current_step >= n_steps:
+        st.session_state.current_step = 0
         st.session_state.playing = False
 
     st.rerun()

@@ -48,5 +48,5 @@ __all__ = [
     'SENTIMENT_CACHE_DIR', 'FEATURE_DOC_PATH',
 
     # API configuration
-    'API_KEY_MASSIVE',
+    'POLYGON_API_KEY',
 ]

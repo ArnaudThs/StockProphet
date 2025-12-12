@@ -32,12 +32,12 @@ def test_imports():
 
         # Test pipeline import
         print("  [4/5] Testing pipeline import...")
-        from ..pipeline_multi import build_multi_ticker_dataset
+        from ..pipeline import build_multi_ticker_dataset
         print("    ✓ build_multi_ticker_dataset imports successfully")
 
         # Test environment creation
         print("  [5/5] Testing environment import...")
-        from ..envs.multi_asset_env import create_single_ticker_env
+        from ..envs import create_single_ticker_env
         print("    ✓ create_single_ticker_env imports successfully")
 
         print("\n✅ All imports successful! Feature selection module is ready to use.")

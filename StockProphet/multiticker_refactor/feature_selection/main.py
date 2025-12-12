@@ -27,7 +27,7 @@ from .config import (
     RL_VALIDATION_METRIC, MIN_IMPROVEMENT_THRESHOLD,
     RESULTS_DIR, BACKWARD_ELIMINATION_CONFIG
 )
-from ..pipeline_multi import build_multi_ticker_dataset
+from ..pipeline import build_multi_ticker_dataset
 
 
 def run_statistical_stage(ticker: str, output_dir: str):

@@ -19,7 +19,7 @@ from ..config import (
     PPO_TRAIN_RATIO, PPO_VAL_RATIO,
     TREND_REWARD_MULTIPLIER, CONVICTION_REWARD, EXIT_TIMING_REWARD, PATIENCE_REWARD
 )
-from ..envs.multi_asset_env import create_single_ticker_env
+from ..envs import create_single_ticker_env
 
 
 class RLFeatureValidator:

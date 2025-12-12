@@ -1,0 +1,27 @@
+{
+  "ticker": "AAPL",
+  "n_features": 5,
+  "features": [
+    "AAPL_rnn_conviction",
+    "days_since_cpi",
+    "AAPL_Volume",
+    "is_holiday_adjacent",
+    "days_since_nfp"
+  ],
+  "metrics": {
+    "final_features": [
+      "AAPL_rnn_conviction",
+      "days_since_cpi",
+      "AAPL_Volume",
+      "is_holiday_adjacent",
+      "days_since_nfp"
+    ],
+    "n_features": 5,
+    "sharpe_mean": -5.291500098944108,
+    "sharpe_std": 7.483311205225332,
+    "test_return_mean": 3.12346617380778,
+    "test_return_std": 2.2160062509942513,
+    "max_dd_mean": 0.0,
+    "time_min": 2.6520012497901915
+  }
+}

@@ -1,0 +1,126 @@
+{
+  "ticker": "AAPL",
+  "config": {
+    "search_timesteps": 25000,
+    "search_seeds": 2,
+    "final_timesteps": 50000,
+    "final_seeds": 3,
+    "max_sharpe_drop": 0.05,
+    "redundancy_threshold": 0.95,
+    "weak_score_threshold": 0.2
+  },
+  "phase1_redundancy_removal": {
+    "removed": [
+      "AAPL_rnn_sigma_1d",
+      "AAPL_rnn_sigma_5d",
+      "AAPL_Open",
+      "days_to_cpi"
+    ],
+    "remaining": 9
+  },
+  "phase2_weak_removal": {
+    "baseline_sharpe": 0.1670267672887479,
+    "test_sharpe": 0.1670267672887479,
+    "sharpe_change_pct": 0.0,
+    "weak_features": [
+      "days_to_nfp",
+      "day_of_month",
+      "AAPL_rnn_prob_up_5d",
+      "AAPL_Sentiment",
+      "AAPL_rnn_trend_alignment",
+      "AAPL_High",
+      "day_of_week",
+      "AAPL_rnn_mu_5d",
+      "AAPL_rnn_confidence_1d",
+      "month",
+      "quarter"
+    ],
+    "decision": "remove",
+    "remaining": 11,
+    "time_min": 3.4508853197097777
+  },
+  "phase3_greedy_elimination": [
+    {
+      "iteration": 1,
+      "tested_feature": "AAPL_rnn_mu_1d",
+      "marginal_score": 0.018526406085232545,
+      "sharpe_before": -0.03709247271665106,
+      "sharpe_after": -0.03709247271665106,
+      "sharpe_drop_pct": -77.69814917903882,
+      "decision": "remove",
+      "remaining": 10,
+      "time_min": 1.3564719478289287
+    },
+    {
+      "iteration": 2,
+      "tested_feature": "AAPL_rnn_sharpe_5d",
+      "marginal_score": 0.019293807912184713,
+      "sharpe_before": 1.0775120086331693,
+      "sharpe_after": 1.0775120086331693,
+      "sharpe_drop_pct": -3004.9336138113695,
+      "decision": "remove",
+      "remaining": 9,
+      "time_min": 1.3182779471079509
+    },
+    {
+      "iteration": 3,
+      "tested_feature": "AAPL_Low",
+      "marginal_score": 0.02270207193649244,
+      "sharpe_before": 1.0775120086331693,
+      "sharpe_after": 1.0775120086331693,
+      "sharpe_drop_pct": 0.0,
+      "decision": "remove",
+      "remaining": 8,
+      "time_min": 1.0322565952936809
+    },
+    {
+      "iteration": 4,
+      "tested_feature": "AAPL_rnn_sharpe_1d",
+      "marginal_score": 0.023600847847386343,
+      "sharpe_before": 1.0775120086331693,
+      "sharpe_after": 1.0775120086331693,
+      "sharpe_drop_pct": 0.0,
+      "decision": "remove",
+      "remaining": 7,
+      "time_min": 0.984540315469106
+    },
+    {
+      "iteration": 5,
+      "tested_feature": "AAPL_rnn_confidence_5d",
+      "marginal_score": 0.024841402232693092,
+      "sharpe_before": 1.0775120086331693,
+      "sharpe_after": 1.0775120086331693,
+      "sharpe_drop_pct": 0.0,
+      "decision": "remove",
+      "remaining": 6,
+      "time_min": 1.0837321480115254
+    },
+    {
+      "iteration": 6,
+      "tested_feature": "AAPL_rnn_prob_up_1d",
+      "marginal_score": 0.06299538963906218,
+      "sharpe_before": 1.0775120086331693,
+      "sharpe_after": 1.0775120086331693,
+      "sharpe_drop_pct": 0.0,
+      "decision": "remove",
+      "remaining": 5,
+      "time_min": 1.0012829184532166
+    }
+  ],
+  "phase4_final_validation": {
+    "final_features": [
+      "AAPL_rnn_conviction",
+      "days_since_cpi",
+      "AAPL_Volume",
+      "is_holiday_adjacent",
+      "days_since_nfp"
+    ],
+    "n_features": 5,
+    "sharpe_mean": -5.291500098944108,
+    "sharpe_std": 7.483311205225332,
+    "test_return_mean": 3.12346617380778,
+    "test_return_std": 2.2160062509942513,
+    "max_dd_mean": 0.0,
+    "time_min": 2.6520012497901915
+  }
+}

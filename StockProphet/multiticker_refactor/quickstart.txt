@@ -1,0 +1,180 @@
+================================================================================
+STOCKPROPHET - MULTI-TICKER TRADING SYSTEM
+Quick Start Command Reference
+================================================================================
+
+SETUP
+================================================================================
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Check cache status
+python -m multiticker_refactor.cache_cli --stats
+
+
+TRAINING COMMANDS
+================================================================================
+
+# Train on default 3 tickers (AAPL, MSFT, GOOGL) - Full pipeline
+cd StockProphet
+python -m multiticker_refactor.main_multi --mode full --timesteps 200000
+
+# Train only (skip evaluation)
+python -m multiticker_refactor.main_multi --mode train --timesteps 200000
+
+# Custom tickers
+python -m multiticker_refactor.main_multi --mode full --tickers AAPL TSLA NVDA
+
+# Without RNN features
+python -m multiticker_refactor.main_multi --mode train --no-rnn --timesteps 200000
+
+# Without sentiment
+python -m multiticker_refactor.main_multi --mode train --no-sentiment --timesteps 200000
+
+# Simple RNN (point predictions instead of probabilistic)
+python -m multiticker_refactor.main_multi --mode train --simple-rnn --timesteps 200000
+
+# Minimal system (no RNN, no sentiment)
+python -m multiticker_refactor.main_multi --mode train --no-rnn --no-sentiment --timesteps 200000
+
+
+EVALUATION COMMANDS
+================================================================================
+
+# Evaluate existing model
+python -m multiticker_refactor.main_multi --mode evaluate
+
+# Evaluate with custom model path
+python -m multiticker_refactor.main_multi --mode evaluate --model-path ./saved_models_multi/my_model.zip
+
+
+MONITORING
+================================================================================
+
+# Launch TensorBoard (monitor training progress)
+tensorboard --logdir=./ppo_multi_logs/
+
+# TensorBoard will be available at: http://localhost:6006
+
+
+CACHE MANAGEMENT
+================================================================================
+
+# Show cache statistics (YFinance + RNN)
+python -m multiticker_refactor.cache_cli --stats
+
+# Clear all caches (force re-download and re-train)
+python -m multiticker_refactor.cache_cli --clear all
+
+# Clear specific cache
+python -m multiticker_refactor.cache_cli --clear yfinance
+python -m multiticker_refactor.cache_cli --clear rnn
+
+
+EXPERIMENTS
+================================================================================
+
+## 1. FEATURE SELECTION (Performance-based dimensionality reduction)
+## Two-stage process: Statistical screening → RL performance validation
+## Result: Optimal feature count based on actual trading Sharpe ratio
+
+# Full pipeline (recommended) - takes ~30-60 minutes
+python -m multiticker_refactor.feature_selection.main --ticker AAPL --stage full
+
+# Stage 1 only: Fast statistical screening (~5 min)
+python -m multiticker_refactor.feature_selection.main --ticker AAPL --stage statistical
+
+# Stage 2 only: RL validation with RecurrentPPO (requires Stage 1 results)
+python -m multiticker_refactor.feature_selection.main --ticker AAPL --stage rl --input results/statistical_results.json
+
+# What it does:
+# - Stage 1: Reduces ~50 → 20 features (correlation, MI, RF importance)
+# - Stage 2: Trains RecurrentPPO agents with different feature counts (20, 15, 12, 10, 8)
+# - Selects feature count with BEST TRADING PERFORMANCE (Sharpe ratio)
+# - Outputs final feature set to results/selected_features.json
+# - Apply results manually to pipeline.py
+
+
+## 2. ABLATION STUDY (Test system components)
+## Compare performance with/without different components
+
+# Baseline: Full system (Probabilistic RNN + Sentiment)
+python -m multiticker_refactor.main_multi --mode full --timesteps 200000
+
+# Test 1: Simple RNN instead of Probabilistic
+python -m multiticker_refactor.main_multi --mode full --simple-rnn --timesteps 200000
+
+# Test 2: No RNN predictions
+python -m multiticker_refactor.main_multi --mode full --no-rnn --timesteps 200000
+
+# Test 3: No sentiment data
+python -m multiticker_refactor.main_multi --mode full --no-sentiment --timesteps 200000
+
+# Test 4: Minimal system (no RNN, no sentiment)
+python -m multiticker_refactor.main_multi --mode full --no-rnn --no-sentiment --timesteps 200000
+
+
+COMMON WORKFLOWS
+================================================================================
+
+# Quick test run (10k timesteps, 3 tickers)
+python -m multiticker_refactor.main_multi --mode full --timesteps 10000
+
+# Production training (200k timesteps, custom tickers)
+python -m multiticker_refactor.main_multi --mode full --tickers AAPL MSFT GOOGL --timesteps 200000
+
+# Re-evaluate existing model after training
+python -m multiticker_refactor.main_multi --mode evaluate
+
+
+OUTPUT DIRECTORIES
+================================================================================
+
+saved_models_multi/       - Trained models, VecNormalize stats, metadata
+ppo_multi_logs/           - TensorBoard training logs
+ppo_multi_best_model/     - Best model by validation reward
+ppo_multi_checkpoints/    - Model checkpoints (every 10k steps)
+ppo_multi_eval_logs/      - Validation evaluation results
+data_cache/               - Cached YFinance data and RNN predictions
+
+
+CONFIGURATION
+================================================================================
+
+# Key parameters to adjust in config.py:
+# - TICKERS: List of ticker symbols (max 3 recommended)
+# - START_DATE / END_DATE: Date range for historical data
+# - INITIAL_CAPITAL: Starting capital (default: $10,000)
+# - PPO_TIMESTEPS: Training steps (default: 200,000)
+# - PPO_TRAIN_RATIO: Train/val/test split (60/20/20)
+# - ENV_TYPE: 'continuous' (position sizing) or 'discrete' (long/short)
+
+
+TROUBLESHOOTING
+================================================================================
+
+# If training fails with "ticker alignment error":
+# - Check that tickers have overlapping date ranges
+# - Adjust START_DATE/END_DATE in config.py
+# - Run with --clear all to reset cache
+
+# If RNN training is slow:
+# - Check cache: python -m multiticker_refactor.cache_cli --stats
+# - RNN predictions are cached after first run
+# - Expected: ~2-5 min per ticker on first run, <1 sec on cache hit
+
+# If memory issues occur:
+# - Reduce number of tickers (max 3 recommended)
+# - Reduce PPO_TIMESTEPS
+# - Use --no-rnn flag to skip LSTM training
+
+
+NOTES
+================================================================================
+
+- All commands assume you're in the repository root
+- Multi-ticker system uses RecurrentPPO (LSTM policy) exclusively
+- Data is cached to speed up repeated runs
+- TensorBoard logs are saved automatically during training
+- Models are checkpointed every 10k steps for recovery

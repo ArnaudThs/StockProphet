@@ -1,0 +1,47 @@
+{
+  "tickers": [
+    "AAPL"
+  ],
+  "start_date": "2020-01-01",
+  "end_date": "2025-06-30",
+  "include_rnn": true,
+  "include_sentiment": true,
+  "probabilistic_rnn": true,
+  "feature_cols": [
+    "AAPL_Close",
+    "AAPL_High",
+    "AAPL_Low",
+    "AAPL_Open",
+    "AAPL_Sentiment",
+    "AAPL_Volume",
+    "AAPL_rnn_confidence_1d",
+    "AAPL_rnn_confidence_5d",
+    "AAPL_rnn_conviction",
+    "AAPL_rnn_mu_1d",
+    "AAPL_rnn_mu_5d",
+    "AAPL_rnn_prob_up_1d",
+    "AAPL_rnn_prob_up_5d",
+    "AAPL_rnn_sharpe_1d",
+    "AAPL_rnn_sharpe_5d",
+    "AAPL_rnn_sigma_1d",
+    "AAPL_rnn_sigma_5d",
+    "AAPL_rnn_trend_alignment",
+    "day_of_week",
+    "day_of_month",
+    "month",
+    "quarter",
+    "is_holiday_adjacent",
+    "days_to_cpi",
+    "days_since_cpi",
+    "days_to_nfp",
+    "days_since_nfp"
+  ],
+  "train_end_idx": 882,
+  "val_end_idx": 1176,
+  "shape": [
+    1421,
+    27
+  ],
+  "cached_at": "2025-12-11T00:31:05.154679",
+  "cache_key": "pipeline_AAPL_2020-01-01_2025-06-30_prob_sent"
+}

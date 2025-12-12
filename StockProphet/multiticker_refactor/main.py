@@ -3,30 +3,28 @@ Main entry point for the StockProphet trading system.
 
 This script orchestrates the full pipeline:
 1. Build feature dataset (OHLCV + technicals + RNN predictions + sentiment)
-2. Train PPO or RecurrentPPO agent on the enriched dataset
+2. Train RecurrentPPO agent on the enriched dataset
 3. Evaluate agent performance
 
 Usage:
-    python -m project_refactored.main [--mode train|evaluate|full] [--recurrent] [--simple-rnn]
+    python -m project_refactored.main [--mode train|evaluate|full] [--simple-rnn]
 """
 import argparse
 import os
 
-from project_refactored.config import (
-    PPO_TIMESTEPS, PPO_MODEL_PATH, VEC_NORMALIZE_PATH, PPO_WINDOW_SIZE, PPO_TRAIN_RATIO,
+from .config import (
+    PPO_TIMESTEPS, VEC_NORMALIZE_PATH, PPO_WINDOW_SIZE, PPO_TRAIN_RATIO,
     RECURRENT_PPO_MODEL_PATH, ENV_TYPE, INITIAL_CAPITAL
 )
-from project_refactored.pipeline import build_feature_dataset, prepare_for_ppo
-from project_refactored.envs.trading_env import (
+from .pipeline import build_feature_dataset, prepare_for_ppo
+from .envs.trading_env import (
     create_train_test_envs, create_eval_callback_env, load_test_env
 )
-from project_refactored.models.ppo import (
-    create_ppo_model, create_callbacks, train_ppo, save_ppo_model, load_ppo_model,
-    create_recurrent_ppo_model, train_recurrent_ppo, save_recurrent_ppo_model,
-    load_recurrent_ppo_model, RECURRENT_PPO_AVAILABLE,
-    create_continuous_ppo_model, create_continuous_recurrent_ppo_model
+from .models.ppo import (
+    create_model, create_continuous_model, create_callbacks,
+    train_model, save_model, load_model
 )
-from project_refactored.evaluate import evaluate_agent_auto
+from .evaluate import evaluate_agent_auto
 
 
 def train_mode(
@@ -34,7 +32,6 @@ def train_mode(
     include_rnn: bool = True,
     include_sentiment: bool = True,
     probabilistic_rnn: bool = True,
-    recurrent: bool = False,
     tensorboard_log: str = "./ppo_logs/"
 ):
     """
@@ -45,24 +42,17 @@ def train_mode(
         include_rnn: Include RNN predictions in features
         include_sentiment: Include sentiment in features
         probabilistic_rnn: Use Probabilistic Multi-Horizon LSTM (vs simple LSTM)
-        recurrent: Use RecurrentPPO with LSTM policy (vs standard PPO)
         tensorboard_log: Path for tensorboard logs
 
     Returns:
         Tuple of (model, train_env, test_env)
     """
-    model_type = "RecurrentPPO" if recurrent else "PPO"
     rnn_type = "Probabilistic Multi-Horizon" if probabilistic_rnn else "Simple"
 
     print("=" * 60)
-    print(f"STOCKPROPHET - TRAINING MODE ({model_type})")
+    print("STOCKPROPHET - TRAINING MODE (RecurrentPPO)")
     print("=" * 60)
     print(f"RNN Type: {rnn_type if include_rnn else 'Disabled'}")
-
-    if recurrent and not RECURRENT_PPO_AVAILABLE:
-        print("\nError: RecurrentPPO requires sb3-contrib.")
-        print("Install with: pip install sb3-contrib")
-        return None, None, None
 
     # Step 1: Build feature dataset
     print("\n[1/5] Building feature dataset...")
@@ -95,38 +85,24 @@ def train_mode(
     )
 
     # Step 4: Create and train model
-    print(f"\n[4/5] Training {model_type} model...")
+    print(f"\n[4/5] Training RecurrentPPO model...")
     print(f"Environment type: {ENV_TYPE}")
     if ENV_TYPE == 'continuous':
         print(f"Initial capital: ${INITIAL_CAPITAL:,.2f}")
 
-    # Select appropriate model based on env type and recurrent flag
+    # Select appropriate model based on env type
     if ENV_TYPE == 'continuous':
-        if recurrent:
-            model = create_continuous_recurrent_ppo_model(
-                train_env,
-                tensorboard_log=tensorboard_log,
-                verbose=1
-            )
-        else:
-            model = create_continuous_ppo_model(
-                train_env,
-                tensorboard_log=tensorboard_log,
-                verbose=1
-            )
+        model = create_continuous_model(
+            train_env,
+            tensorboard_log=tensorboard_log,
+            verbose=1
+        )
     else:
-        if recurrent:
-            model = create_recurrent_ppo_model(
-                train_env,
-                tensorboard_log=tensorboard_log,
-                verbose=1
-            )
-        else:
-            model = create_ppo_model(
-                train_env,
-                tensorboard_log=tensorboard_log,
-                verbose=1
-            )
+        model = create_model(
+            train_env,
+            tensorboard_log=tensorboard_log,
+            verbose=1
+        )
 
     callbacks = create_callbacks(
         train_env, eval_env,
@@ -134,17 +110,11 @@ def train_mode(
         checkpoint_freq=10000
     )
 
-    if recurrent:
-        model = train_recurrent_ppo(model, total_timesteps=timesteps, callbacks=callbacks)
-    else:
-        model = train_ppo(model, total_timesteps=timesteps, callbacks=callbacks)
+    model = train_model(model, total_timesteps=timesteps, callbacks=callbacks)
 
     # Step 5: Save model
     print("\n[5/5] Saving model...")
-    if recurrent:
-        save_recurrent_ppo_model(model, train_env)
-    else:
-        save_ppo_model(model, train_env)
+    save_model(model, train_env)
 
     print("\n" + "=" * 60)
     print("TRAINING COMPLETE")
@@ -157,18 +127,16 @@ def evaluate_mode(
     include_rnn: bool = True,
     include_sentiment: bool = True,
     probabilistic_rnn: bool = True,
-    recurrent: bool = False,
     model_path: str = None,
     vec_normalize_path: str = None
 ):
     """
-    Run evaluation on a trained model.
+    Run evaluation on a trained RecurrentPPO model.
 
     Args:
         include_rnn: Include RNN predictions in features
         include_sentiment: Include sentiment in features
         probabilistic_rnn: Use Probabilistic Multi-Horizon LSTM
-        recurrent: Whether the model is RecurrentPPO
         model_path: Path to saved model
         vec_normalize_path: Path to saved VecNormalize stats
 
@@ -176,20 +144,13 @@ def evaluate_mode(
         Evaluation results dictionary
     """
     if model_path is None:
-        model_path = RECURRENT_PPO_MODEL_PATH if recurrent else PPO_MODEL_PATH
+        model_path = RECURRENT_PPO_MODEL_PATH
     if vec_normalize_path is None:
         vec_normalize_path = VEC_NORMALIZE_PATH
 
-    model_type = "RecurrentPPO" if recurrent else "PPO"
-
     print("=" * 60)
-    print(f"STOCKPROPHET - EVALUATION MODE ({model_type})")
+    print("STOCKPROPHET - EVALUATION MODE (RecurrentPPO)")
     print("=" * 60)
-
-    if recurrent and not RECURRENT_PPO_AVAILABLE:
-        print("\nError: RecurrentPPO requires sb3-contrib.")
-        print("Install with: pip install sb3-contrib")
-        return None
 
     # Check if model exists
     model_path = str(model_path)  # Convert Path to string if needed
@@ -223,11 +184,8 @@ def evaluate_mode(
     )
 
     # Step 3: Load model and evaluate
-    print(f"\n[3/3] Loading {model_type} model and evaluating...")
-    if recurrent:
-        model = load_recurrent_ppo_model(model_path)
-    else:
-        model = load_ppo_model(model_path)
+    print(f"\n[3/3] Loading RecurrentPPO model and evaluating...")
+    model = load_model(model_path)
 
     results = evaluate_agent_auto(model, test_env, episodes=1)
 
@@ -243,7 +201,6 @@ def full_mode(
     include_rnn: bool = True,
     include_sentiment: bool = True,
     probabilistic_rnn: bool = True,
-    recurrent: bool = False,
     tensorboard_log: str = "./ppo_logs/"
 ):
     """
@@ -254,16 +211,13 @@ def full_mode(
         include_rnn: Include RNN predictions in features
         include_sentiment: Include sentiment in features
         probabilistic_rnn: Use Probabilistic Multi-Horizon LSTM
-        recurrent: Use RecurrentPPO with LSTM policy
         tensorboard_log: Path for tensorboard logs
 
     Returns:
         Tuple of (model, results)
     """
-    model_type = "RecurrentPPO" if recurrent else "PPO"
-
     print("=" * 60)
-    print(f"STOCKPROPHET - FULL PIPELINE ({model_type})")
+    print("STOCKPROPHET - FULL PIPELINE (RecurrentPPO)")
     print("=" * 60)
 
     # Train
@@ -272,7 +226,6 @@ def full_mode(
         include_rnn=include_rnn,
         include_sentiment=include_sentiment,
         probabilistic_rnn=probabilistic_rnn,
-        recurrent=recurrent,
         tensorboard_log=tensorboard_log
     )
 
@@ -300,24 +253,18 @@ def full_mode(
 def main():
     """Main entry point with CLI argument parsing."""
     parser = argparse.ArgumentParser(
-        description="StockProphet Trading System",
+        description="StockProphet Trading System (RecurrentPPO)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  Train standard PPO with probabilistic RNN:
+  Train RecurrentPPO with probabilistic RNN:
     python -m project_refactored.main --mode train --timesteps 100000
-
-  Train RecurrentPPO (LSTM policy) with probabilistic RNN:
-    python -m project_refactored.main --mode train --recurrent --timesteps 100000
 
   Train with simple RNN (point predictions):
     python -m project_refactored.main --mode train --simple-rnn
 
   Evaluate an existing model:
     python -m project_refactored.main --mode evaluate
-
-  Evaluate a RecurrentPPO model:
-    python -m project_refactored.main --mode evaluate --recurrent
 
   Full pipeline (train + evaluate):
     python -m project_refactored.main --mode full
@@ -356,11 +303,6 @@ Examples:
         help="Use simple LSTM (point predictions) instead of Probabilistic Multi-Horizon LSTM"
     )
     parser.add_argument(
-        "--recurrent",
-        action="store_true",
-        help="Use RecurrentPPO with LSTM policy instead of standard PPO"
-    )
-    parser.add_argument(
         "--tensorboard",
         type=str,
         default="./ppo_logs/",
@@ -378,7 +320,6 @@ Examples:
     include_rnn = not args.no_rnn
     include_sentiment = not args.no_sentiment
     probabilistic_rnn = not args.simple_rnn
-    recurrent = args.recurrent
 
     if args.mode == "train":
         train_mode(
@@ -386,7 +327,6 @@ Examples:
             include_rnn=include_rnn,
             include_sentiment=include_sentiment,
             probabilistic_rnn=probabilistic_rnn,
-            recurrent=recurrent,
             tensorboard_log=args.tensorboard
         )
     elif args.mode == "evaluate":
@@ -394,7 +334,6 @@ Examples:
             include_rnn=include_rnn,
             include_sentiment=include_sentiment,
             probabilistic_rnn=probabilistic_rnn,
-            recurrent=recurrent,
             model_path=args.model_path
         )
     else:  # full
@@ -403,7 +342,6 @@ Examples:
             include_rnn=include_rnn,
             include_sentiment=include_sentiment,
             probabilistic_rnn=probabilistic_rnn,
-            recurrent=recurrent,
             tensorboard_log=args.tensorboard
         )
 

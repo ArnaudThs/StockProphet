@@ -5,10 +5,9 @@ Source: External dataprep.py (all technical/calendar functions)
 import numpy as np
 import pandas as pd
 import holidays
-import os
 
 from ..config import (
-    USE_HMM, FILLER, START_DATE, END_DATE, FEATURE_DOC_PATH
+    USE_HMM, FILLER, START_DATE, END_DATE
 )
 
 # =============================================================================
@@ -30,43 +29,6 @@ def validate_feature(df: pd.DataFrame, name: str):
     assert not df[name].isna().all(), f"{name} all NaN"
     assert not np.isinf(df[name]).any(), f"{name} contains inf"
     assert name in feature_registry, f"{name} missing in registry"
-
-
-def initialize_feature_registry(df: pd.DataFrame, target: str, support: list) -> pd.DataFrame:
-    """
-    Initialize feature registry with raw OHLCV columns.
-
-    Args:
-        df: DataFrame with OHLCV data
-        target: Target ticker symbol
-        support: List of support ticker symbols
-
-    Returns:
-        DataFrame with target_close column added
-    """
-    global feature_registry
-    feature_registry = {}
-
-    tickers = [target] + support
-
-    # Register raw OHLCV (no shift needed for close-to-open trading)
-    for t in tickers:
-        for field in ["Open", "High", "Low", "Close", "Volume"]:
-            name = f"{t}_{field}"
-            if name in df.columns:
-                register_feature(name, "no_shift")
-                validate_feature(df, name)
-
-    # Create canonical target_close
-    df["target_close"] = df[f"{target}_Close"]
-    register_feature("target_close", "no_shift")
-    validate_feature(df, "target_close")
-
-    # Check for NaNs in target
-    if df['target_close'].isna().any():
-        raise ValueError("target_close contains NaN values")
-
-    return df
 
 
 # =============================================================================
@@ -142,24 +104,6 @@ def add_all_technicals(df: pd.DataFrame, tickers: list, use_hmm: bool = USE_HMM)
 
 
 # =============================================================================
-# CROSS-TICKER FEATURES
-# =============================================================================
-
-def generate_cross_ticker_features(df: pd.DataFrame, target: str, support: list) -> pd.DataFrame:
-    """Generate ratio features between support tickers and target."""
-    tgt_close = f"{target}_Close"
-
-    for s in support:
-        sc = f"{s}_Close"
-        name = f"{s}_Ratio_{target}"
-        df[name] = df[sc] / df[tgt_close]
-        register_feature(name, "no_shift")
-        validate_feature(df, name)
-
-    return df
-
-
-# =============================================================================
 # CALENDAR & MACRO FEATURES
 # =============================================================================
 
@@ -218,8 +162,8 @@ def add_macro_distances(df: pd.DataFrame) -> pd.DataFrame:
             for m, d in md_list:
                 try:
                     out.append(pd.Timestamp(year=y, month=m, day=d))
-                except:
-                    pass
+                except ValueError:
+                    pass  # Invalid date (e.g., Feb 30)
         s = pd.to_datetime(out)
         s = s[(s >= start - pd.Timedelta(days=365)) &
               (s <= end + pd.Timedelta(days=365))]
@@ -339,38 +283,3 @@ def data_integrity_report(df: pd.DataFrame):
         for col, n in worst.items():
             print(f"  {col}: {n}")
     print("")
-
-
-# =============================================================================
-# DOCUMENTATION
-# =============================================================================
-
-def generate_markdown_feature_doc(path=None):
-    """Generate Markdown documentation of features."""
-    if path is None:
-        path = FEATURE_DOC_PATH
-
-    global feature_registry
-
-    lines = []
-    lines.append("# Feature Transformation Table\n")
-    lines.append("Automatically generated after running the feature pipeline.\n\n")
-    lines.append("| Feature | Rule | Output Columns |\n")
-    lines.append("|---------|------|----------------|\n")
-
-    for feature, rule in feature_registry.items():
-        if rule == "no_shift":
-            out_cols = feature
-        elif rule == "shift_1":
-            out_cols = f"{feature}_t-1"
-        else:
-            out_cols = "ERROR_UNKNOWN_RULE"
-
-        lines.append(f"| `{feature}` | `{rule}` | `{out_cols}` |\n")
-
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-
-    with open(path, "w") as f:
-        f.writelines(lines)
-
-    print(f"Markdown feature documentation written to: {path}")

@@ -144,6 +144,14 @@ ENV/
 env.bak/
 venv.bak/
 
+# StockProphet-specific
+StockProphet/multiticker_refactor/saved_models/
+StockProphet/multiticker_refactor/data_cache/
+StockProphet/multiticker_refactor/ppo_logs/
+StockProphet/multiticker_refactor/ppo_checkpoints/
+StockProphet/multiticker_refactor/episode_data/
+StockProphet/multiticker_refactor/config_legacy.py
+
 # Spyder project settings
 .spyderproject
 .spyproject

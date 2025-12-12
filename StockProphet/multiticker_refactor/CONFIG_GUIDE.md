@@ -170,16 +170,7 @@ MAX_DATA_LOSS_PCT = 0.20            # Maximum 20% data loss in inner join
 
 ---
 
-### 11. API Keys
-```python
-API_KEY_MASSIVE = "SiV7GQdKTF2ZtrAr1xNSrnNYP11dKCAC"  # Massive News API
-```
-
-**Usage**: Fetch sentiment data via Massive API (2024+ only)
-
----
-
-### 12. Paths
+### 11. Paths
 ```python
 BASE_DIR = Path(__file__).parent
 MODELS_DIR = BASE_DIR / "saved_models"
@@ -207,9 +198,9 @@ All directories created automatically on import.
 - `PPO_TRAIN_RATIO`, `PPO_VAL_RATIO` - Train/val/test split
 - `LSTM_WINDOW_SIZE`, `LSTM_EPOCHS`, `LSTM_BATCH_SIZE` - RNN training
 - `PROB_LSTM_HORIZONS` - Multi-horizon predictions
-- `API_KEY_MASSIVE`, `SENTIMENT_START_DATE`, `SENTIMENT_END_DATE` - Sentiment
+- `POLYGON_API_KEY` - Sentiment news fetching (Polygon API)
 
-**Usage**: Build multi-ticker dataset with all features
+**Usage**: Build multi-ticker dataset with all features (includes Polygon + FinBERT sentiment)
 
 ---
 

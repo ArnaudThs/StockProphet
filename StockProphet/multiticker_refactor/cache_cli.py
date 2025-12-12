@@ -13,6 +13,9 @@ Usage:
 
     # Clear only RNN cache
     python -m multiticker_refactor.cache_cli --clear rnn
+
+    # Clear only pipeline cache
+    python -m multiticker_refactor.cache_cli --clear pipeline
 """
 import argparse
 from .data.cache import clear_cache, get_cache_stats
@@ -30,8 +33,8 @@ def main():
     parser.add_argument(
         "--clear",
         type=str,
-        choices=["all", "yfinance", "rnn"],
-        help="Clear cache (all/yfinance/rnn)"
+        choices=["all", "yfinance", "rnn", "pipeline"],
+        help="Clear cache (all/yfinance/rnn/pipeline)"
     )
 
     args = parser.parse_args()
@@ -47,6 +50,9 @@ def main():
         print(f"\nRNN Cache:")
         print(f"  Files: {stats['rnn_cache']['count']}")
         print(f"  Size:  {stats['rnn_cache']['size_mb']} MB")
+        print(f"\nPipeline Cache:")
+        print(f"  Files: {stats['pipeline_cache']['count']}")
+        print(f"  Size:  {stats['pipeline_cache']['size_mb']} MB")
         print(f"\nTotal Cache Size: {stats['total_size_mb']} MB")
         print("=" * 60 + "\n")
 

@@ -113,8 +113,11 @@ multiticker_refactor/
 ├── main_multi.py                # Main entry point
 ├── data/
 │   ├── downloader.py            # yfinance data fetching
-│   ├── features.py              # Technical indicators, calendar features
-│   └── sentiment.py             # Massive API sentiment
+│   └── features.py              # Technical indicators, calendar features
+├── sentiment/                   # Sentiment analysis module
+│   ├── fetcher.py               # Polygon API news fetching
+│   ├── processor.py             # FinBERT sentiment scoring
+│   └── pipeline.py              # Sentiment integration
 ├── models/
 │   ├── rnn.py                   # LSTM models (simple + probabilistic)
 │   └── ppo.py                   # PPO model creation

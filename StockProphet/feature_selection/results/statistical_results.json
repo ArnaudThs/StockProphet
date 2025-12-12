@@ -1,0 +1,310 @@
+{
+  "n_features_original": 26,
+  "scores": [
+    {
+      "feature": "AAPL_rnn_conviction",
+      "corr_with_returns": 0.06624296405122289,
+      "mutual_info": 0.001881646354410238,
+      "rf_importance": 0.08030566123027967,
+      "variance": 0.22873896036969457,
+      "redundancy": 0.15174993195334185,
+      "composite_score": 0.5974536096100694
+    },
+    {
+      "feature": "days_since_cpi",
+      "corr_with_returns": 0.05062816553553399,
+      "mutual_info": 0.020475429806939838,
+      "rf_importance": 0.03878769402930097,
+      "variance": 9.063890192887543,
+      "redundancy": 0.7720707175829321,
+      "composite_score": 0.5867492961066406
+    },
+    {
+      "feature": "AAPL_Volume",
+      "corr_with_returns": 0.04626419674188222,
+      "mutual_info": 0.019195363617490635,
+      "rf_importance": 0.057282797323940114,
+      "variance": 0.9657016229545837,
+      "redundancy": 0.7383036517622881,
+      "composite_score": 0.5460850216574571
+    },
+    {
+      "feature": "days_to_cpi",
+      "corr_with_returns": 0.05864839473818173,
+      "mutual_info": 0.012911969018949643,
+      "rf_importance": 0.034980469934884635,
+      "variance": 9.09956240775024,
+      "redundancy": 0.7720707175829321,
+      "composite_score": 0.5064483107984524
+    },
+    {
+      "feature": "AAPL_rnn_sharpe_1d",
+      "corr_with_returns": 0.02770360305013831,
+      "mutual_info": 0.022083157077875892,
+      "rf_importance": 0.04331140204856553,
+      "variance": 10.204736354209173,
+      "redundancy": 0.9999873030036551,
+      "composite_score": 0.487265526464074
+    },
+    {
+      "feature": "is_holiday_adjacent",
+      "corr_with_returns": 0.061673007835355766,
+      "mutual_info": 0.006704687595958658,
+      "rf_importance": 0.0022317453456189578,
+      "variance": 0.229137265326401,
+      "redundancy": 0.08919444869581662,
+      "composite_score": 0.3631305536127814
+    },
+    {
+      "feature": "days_since_nfp",
+      "corr_with_returns": 0.024865870487360133,
+      "mutual_info": 0.008469625368859424,
+      "rf_importance": 0.04556183367790581,
+      "variance": 9.05422192455608,
+      "redundancy": 0.754458011753205,
+      "composite_score": 0.3357126541595427
+    },
+    {
+      "feature": "AAPL_rnn_sharpe_5d",
+      "corr_with_returns": 0.027706027536782866,
+      "mutual_info": 0.017232785422926833,
+      "rf_importance": 0.02904812312501415,
+      "variance": 6.250028990907082,
+      "redundancy": 0.9999873030036551,
+      "composite_score": 0.3293468186602267
+    },
+    {
+      "feature": "AAPL_Low",
+      "corr_with_returns": 0.02688329206765667,
+      "mutual_info": 0.014242357496298874,
+      "rf_importance": 0.05095055697325525,
+      "variance": 1.322697266618439,
+      "redundancy": 0.9991286716367264,
+      "composite_score": 0.3187043112871777
+    },
+    {
+      "feature": "AAPL_Open",
+      "corr_with_returns": 0.025495948771007828,
+      "mutual_info": 0.018235043946415397,
+      "rf_importance": 0.037804205011433695,
+      "variance": 1.3159346441709159,
+      "redundancy": 0.9991286716367264,
+      "composite_score": 0.3174845719045071
+    },
+    {
+      "feature": "AAPL_rnn_confidence_5d",
+      "corr_with_returns": 0.031242999543624438,
+      "mutual_info": 0.0056597181399382634,
+      "rf_importance": 0.06885293463812141,
+      "variance": 0.5912052619462548,
+      "redundancy": 1.0,
+      "composite_score": 0.2813892069167417
+    },
+    {
+      "feature": "AAPL_rnn_prob_up_1d",
+      "corr_with_returns": 0.04486435421561283,
+      "mutual_info": 0.0,
+      "rf_importance": 0.056823027937257034,
+      "variance": 0.22746949083281265,
+      "redundancy": 0.8091426110653654,
+      "composite_score": 0.2558566975797422
+    },
+    {
+      "feature": "AAPL_rnn_mu_1d",
+      "corr_with_returns": 0.02779424155085002,
+      "mutual_info": 0.01141961258821289,
+      "rf_importance": 0.03379765305975643,
+      "variance": 1.3148158107118633,
+      "redundancy": 0.9999864038421881,
+      "composite_score": 0.2201554587864524
+    },
+    {
+      "feature": "AAPL_rnn_sigma_5d",
+      "corr_with_returns": 0.031242999543624438,
+      "mutual_info": 0.005975247680819695,
+      "rf_importance": 0.0492890380428861,
+      "variance": 0.021294837223032076,
+      "redundancy": 1.0,
+      "composite_score": 0.20700555333119247
+    },
+    {
+      "feature": "days_to_nfp",
+      "corr_with_returns": 0.026965442688058807,
+      "mutual_info": 0.0,
+      "rf_importance": 0.03369652541435977,
+      "variance": 9.09493343943958,
+      "redundancy": 0.754458011753205,
+      "composite_score": 0.1862346357651562
+    },
+    {
+      "feature": "day_of_month",
+      "corr_with_returns": 0.016173745169501253,
+      "mutual_info": 0.0,
+      "rf_importance": 0.028503228720771538,
+      "variance": 8.764092421674716,
+      "redundancy": 0.43955584606560705,
+      "composite_score": 0.17769905308497008
+    },
+    {
+      "feature": "AAPL_rnn_prob_up_5d",
+      "corr_with_returns": 0.0163886014132955,
+      "mutual_info": 0.0,
+      "rf_importance": 0.0639608538445,
+      "variance": 0.18965402371283466,
+      "redundancy": 0.8091426110653654,
+      "composite_score": 0.15319061136267542
+    },
+    {
+      "feature": "AAPL_Sentiment",
+      "corr_with_returns": 0.007505680854157637,
+      "mutual_info": 0.0,
+      "rf_importance": 0.03741629934609119,
+      "variance": 2.0535669049661776,
+      "redundancy": 0.232565634143,
+      "composite_score": 0.1473791810466891
+    },
+    {
+      "feature": "AAPL_rnn_trend_alignment",
+      "corr_with_returns": 0.037119634041524976,
+      "mutual_info": 0.0,
+      "rf_importance": 0.0015271326055991358,
+      "variance": 0.2779652409786381,
+      "redundancy": 0.14680251573488134,
+      "composite_score": 0.14717506765781696
+    },
+    {
+      "feature": "AAPL_High",
+      "corr_with_returns": 0.02620516530064162,
+      "mutual_info": 0.0,
+      "rf_importance": 0.0442909594247279,
+      "variance": 1.3106314307004272,
+      "redundancy": 0.9990040290082877,
+      "composite_score": 0.09717894114071918
+    },
+    {
+      "feature": "day_of_week",
+      "corr_with_returns": 0.005441958887517807,
+      "mutual_info": 0.0,
+      "rf_importance": 0.015721633718476527,
+      "variance": 1.3970108283587448,
+      "redundancy": 0.04496672769254375,
+      "composite_score": 0.08807364757229796
+    },
+    {
+      "feature": "AAPL_rnn_mu_5d",
+      "corr_with_returns": 0.02794045045893154,
+      "mutual_info": 0.0,
+      "rf_importance": 0.03449298155328863,
+      "variance": 1.2576529685013267,
+      "redundancy": 0.9999752751507277,
+      "composite_score": 0.06772170214586695
+    },
+    {
+      "feature": "AAPL_rnn_confidence_1d",
+      "corr_with_returns": 0.028490000096382254,
+      "mutual_info": 0.0,
+      "rf_importance": 0.030660073310060494,
+      "variance": 1.0718708721678964,
+      "redundancy": 1.0,
+      "composite_score": 0.054066304301226886
+    },
+    {
+      "feature": "AAPL_rnn_sigma_1d",
+      "corr_with_returns": 0.028490000096382254,
+      "mutual_info": 0.0,
+      "rf_importance": 0.03144857795155779,
+      "variance": 0.015912934828430723,
+      "redundancy": 1.0,
+      "composite_score": 0.046664217911302486
+    },
+    {
+      "feature": "month",
+      "corr_with_returns": 0.0035446319277080787,
+      "mutual_info": 0.002583768340816972,
+      "rf_importance": 0.034314525822999827,
+      "variance": 3.4414850768485836,
+      "redundancy": 0.9714807911603061,
+      "composite_score": 0.018771284087048423
+    },
+    {
+      "feature": "quarter",
+      "corr_with_returns": 0.0010108661833706516,
+      "mutual_info": 0.00645143512886559,
+      "rf_importance": 0.014940065909347561,
+      "variance": 1.1143302553920411,
+      "redundancy": 0.9714807911603061,
+      "composite_score": -0.03534363656311584
+    }
+  ],
+  "top_30": [
+    "AAPL_rnn_conviction",
+    "days_since_cpi",
+    "AAPL_Volume",
+    "days_to_cpi",
+    "AAPL_rnn_sharpe_1d",
+    "is_holiday_adjacent",
+    "days_since_nfp",
+    "AAPL_rnn_sharpe_5d",
+    "AAPL_Low",
+    "AAPL_Open",
+    "AAPL_rnn_confidence_5d",
+    "AAPL_rnn_prob_up_1d",
+    "AAPL_rnn_mu_1d",
+    "AAPL_rnn_sigma_5d",
+    "days_to_nfp",
+    "day_of_month",
+    "AAPL_rnn_prob_up_5d",
+    "AAPL_Sentiment",
+    "AAPL_rnn_trend_alignment",
+    "AAPL_High",
+    "day_of_week",
+    "AAPL_rnn_mu_5d",
+    "AAPL_rnn_confidence_1d",
+    "AAPL_rnn_sigma_1d",
+    "month",
+    "quarter"
+  ],
+  "top_20": [
+    "AAPL_rnn_conviction",
+    "days_since_cpi",
+    "AAPL_Volume",
+    "days_to_cpi",
+    "AAPL_rnn_sharpe_1d",
+    "is_holiday_adjacent",
+    "days_since_nfp",
+    "AAPL_rnn_sharpe_5d",
+    "AAPL_Low",
+    "AAPL_Open",
+    "AAPL_rnn_confidence_5d",
+    "AAPL_rnn_prob_up_1d",
+    "AAPL_rnn_mu_1d",
+    "AAPL_rnn_sigma_5d",
+    "days_to_nfp",
+    "day_of_month",
+    "AAPL_rnn_prob_up_5d",
+    "AAPL_Sentiment",
+    "AAPL_rnn_trend_alignment",
+    "AAPL_High"
+  ],
+  "top_15": [
+    "AAPL_rnn_conviction",
+    "days_since_cpi",
+    "AAPL_Volume",
+    "days_to_cpi",
+    "AAPL_rnn_sharpe_1d",
+    "is_holiday_adjacent",
+    "days_since_nfp",
+    "AAPL_rnn_sharpe_5d",
+    "AAPL_Low",
+    "AAPL_Open",
+    "AAPL_rnn_confidence_5d",
+    "AAPL_rnn_prob_up_1d",
+    "AAPL_rnn_mu_1d",
+    "AAPL_rnn_sigma_5d",
+    "days_to_nfp"
+  ],
+  "config": {
+    "train_ratio": 0.8,
+    "target_col": "AAPL_Close"
+  }
+}
